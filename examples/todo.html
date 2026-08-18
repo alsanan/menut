@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menut · Todo</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 32rem; margin: 3rem auto; padding: 0 1rem; }
+  ul { list-style: none; padding: 0; }
+  li { display: flex; align-items: center; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid var(--hairline); }
+  li span { flex: 1; }
+  li.done span { text-decoration: line-through; color: var(--fg-muted); }
+  .empty { color: var(--fg-muted); }
+</style>
+</head>
+<body>
+  <h1>Todo</h1>
+
+  <form inline :on.submit="agregar(event)">
+    <input type="text" :model="nuevaTarea" placeholder="Nueva tarea" style="flex:1">
+    <button>Añadir</button>
+  </form>
+
+  <ul>
+    <template :each="tareas">
+      <li :class="item.hecha ? 'done' : ''">
+        <input type="checkbox" :model="item.hecha">
+        <span ::="item.texto"></span>
+        <button :on.click="eliminar(item._index)">X</button>
+      </li>
+    </template>
+  </ul>
+
+  <p class="empty" :hidden="tareas.length > 0">No hay tareas</p>
+
+  <p>Pendientes: <span ::="tareas.filter(t => !t.hecha).length"></span></p>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      nuevaTarea: "",
+      tareas: [
+          { texto: "Probar Menut", hecha: true },
+          { texto: "Leer docs/spec.md", hecha: false }
+      ],
+
+      agregar(event) {
+          event.preventDefault();
+          const texto = _.nuevaTarea.trim();
+          if (texto) _.tareas.push({ texto, hecha: false });
+          _.nuevaTarea = "";
+      },
+
+      eliminar(index) {
+          _.tareas.splice(index, 1);
+      }
+  };
+
+  _.mount();
+  </script>
+</body>
+</html>

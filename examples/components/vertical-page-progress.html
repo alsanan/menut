@@ -1,0 +1,33 @@
+<!--
+  @component vertical-page-progress
+  @description Fixed viewport progress bar that fills as user scrolls. CSS vars: --bar-height, --accent. Attribute: bottom for bottom placement.
+  @usage <vertical-page-progress></vertical-page-progress>
+  @impl CSS-only. Uses animation-timeline: scroll(root block) with @keyframes progress for width fill. No JS needed.
+-->
+<template shadowrootmode="open">
+<style>
+:host{
+  display:block;
+  position:fixed;
+  inset:0 0 auto;
+  height:var(--bar-height,3px);
+  z-index:999;
+  pointer-events:none;
+}
+:host([hidden]){display:none}
+:host([bottom]){inset:auto 0 0}
+.bar{
+  height:100%;
+  background:var(--accent,var(--fg));
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  animation:progress linear;
+  animation-timeline:scroll(root block);
+  transform-origin:left;
+}
+@keyframes progress{
+  from{width:0%}
+  to{width:100%}
+}
+</style>
+<div class="bar" id="bar"></div>
+</template>

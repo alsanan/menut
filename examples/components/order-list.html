@@ -1,0 +1,273 @@
+<!--
+  @component order-list
+  @description Drag-to-reorder list. Slotted children become sortable items. Pointer-based drag with FLIP animation. Form-associated. Attribute: horizontal.
+  @usage <order-list><div>Item 1</div><div>Item 2</div></order-list>
+  @impl Pointer events for drag. Fixed-position dragging element with placeholder. FLIP animation for siblings. setFormValue with JSON order.
+-->
+<template shadowrootmode="open">
+
+<style>
+:host{
+    display:block;
+    position:relative;
+    --gap:.75rem;
+}
+
+#list{
+    display:flex;
+    flex-direction:column;
+    gap:var(--gap);
+    position:relative;
+}
+:host([horizontal]) #list{ flex-direction:row; flex-wrap:wrap; }
+::slotted(*){
+    display:block;
+    width: fit-content;
+    position:relative;
+    border-radius:var(--radius);
+    background:var(--bg-tabs);
+    border:var(--border);
+    padding:.75rem 1rem !important;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    box-shadow: var(--shadow-btn);
+    transition: box-shadow .25s, opacity .25s;
+}
+
+::slotted(.dragging){
+    cursor:grabbing;
+    opacity:.9;
+    z-index:9999;
+    transition:none;
+    box-shadow: 0 12px 40px rgb(0 0 0 /.22);
+}
+
+::slotted(.placeholder){
+    border-radius:var(--radius);
+    border:2px dashed var(--fg);
+    background:transparent;
+    min-height: 50px;
+    width: auto;
+    animation: drop-zone 1s infinite ease-out;
+}
+
+@keyframes drop-zone {
+  from { box-shadow: 0 0 0 0 var(--fg-muted) }
+  to   { box-shadow: 0 0 0 15px var(--bg) }
+}
+
+@keyframes pulse{ 50%{ opacity:.35; } }
+</style>
+
+<div id="list">
+    <slot></slot>
+</div>
+
+
+<script>
+const host=this;
+const root=host.el.shadowRoot;
+const slot=root.querySelector("slot");
+const isHorizontal= host.el.hasAttribute("horizontal");
+
+
+let items=[];
+let dragged=null;
+let drag;
+
+function refresh(){
+    items= slot.assignedElements({flatten:true});
+    items.forEach(init);
+}
+
+function init(el){
+    if(el._sort) return;
+    el._sort=true;
+    el.addEventListener(
+        "pointerdown",
+        pointerDown
+    );
+}
+
+function pointerDown(e){
+
+    if(e.button!==0) return;
+
+    drag={
+        item:e.currentTarget,
+        startX:e.clientX,
+        startY:e.clientY
+    };
+
+    const r= drag.item.getBoundingClientRect();
+    drag.left=r.left;
+    drag.top=r.top;
+    drag.width=r.width;
+    drag.height=r.height;
+    placeholder= document.createElement("div");
+    placeholder.className= "placeholder";
+    placeholder.style.width= r.width+"px";
+    placeholder.style.height= r.height+"px";
+    drag.item.after( placeholder );
+    drag.item.classList.add( "dragging" );
+    drag.item.style.width= r.width+"px";
+    drag.item.style.position= "fixed";
+    drag.item.style.left= r.left+"px";
+    drag.item.style.top= r.top+"px";
+    drag.item.style.margin=0;
+    drag.item.style.pointerEvents= "none";
+
+    window.addEventListener(
+        "pointermove",
+        pointerMove
+    );
+
+    window.addEventListener(
+        "pointerup",
+        pointerUp
+    );
+}
+
+function pointerMove(e){
+    if(!drag) return;
+    drag.item.style.left= drag.left + e.clientX - drag.startX + "px";
+    drag.item.style.top= drag.top + e.clientY - drag.startY + "px";
+}
+
+function pointerUp(){
+    drag.item.removeAttribute(
+        "style"
+    );
+    placeholder.replaceWith(
+        drag.item
+    );
+    drag.item.classList.remove(
+        "dragging"
+    );
+    window.removeEventListener(
+        "pointermove",
+        pointerMove
+    );
+    window.removeEventListener(
+        "pointerup",
+        pointerUp
+    );
+    drag=null;
+}
+
+function flip(callback){
+
+    const first=new Map();
+
+    items.forEach(el=>{
+        if(el!==drag.item) first.set(el,el.getBoundingClientRect());
+    });
+
+    callback();
+
+    requestAnimationFrame(()=>{
+
+        items=slot.assignedElements({flatten:true});
+
+        items.forEach(el=>{
+
+            if(el===drag?.item) return;
+            const a=first.get(el);
+            if(!a) return;
+
+            const b=el.getBoundingClientRect();
+            const dx=a.left-b.left;
+            const dy=a.top-b.top;
+
+            if(dx===0 && dy===0) return;
+            el.animate(
+                [
+                    { transform:`translate(${dx}px,${dy}px)` },
+                    { transform:"translate(0,0)" }
+                ],
+                {
+                    duration:220,
+                    easing:"cubic-bezier(.22,1,.36,1)"
+                }
+            );
+        });
+    });
+}
+
+/*function getTarget(y){
+    return items.find(el=>{
+        if (el===drag.item) return false;
+        if (el.classList.contains('placeholder')) return;
+        const r=el.getBoundingClientRect();
+        return y>=r.top-1 && y<=r.bottom+1;
+    });
+}*/
+
+function getTarget(pos){
+    return items.find(el=>{
+        if(el===drag.item) return false;
+        if(el===placeholder) return false;
+        const r=el.getBoundingClientRect();
+        return isHorizontal
+            ? pos>=r.left && pos<=r.right
+            : pos>=r.top && pos<=r.bottom;
+    });
+}
+
+function movePlaceholder(target,y){
+    const r=target.getBoundingClientRect();
+    const before= isHorizontal ? (y < r.left + r.width/2) : (y < r.top + r.height/2);
+    flip(()=>{
+        if(before) target.before(placeholder);
+        else target.after(placeholder);
+    });
+}
+
+function pointerMove(e){
+    if(!drag) return;
+    drag.item.style.left= drag.left + e.clientX - drag.startX + "px";
+    drag.item.style.top= drag.top + e.clientY - drag.startY + "px";
+    const target= getTarget( isHorizontal ? e.clientX : e.clientY );
+    if(!target) return;
+    movePlaceholder(
+        target,
+        isHorizontal ? e.clientX : e.clientY
+    );
+}
+
+function pointerUp(){
+    flip(()=>{
+        placeholder.replaceWith(
+            drag.item
+        );
+    });
+    drag.item.removeAttribute("style");
+    drag.item.classList.remove("dragging");
+    window.removeEventListener("pointermove",pointerMove);
+    window.removeEventListener("pointerup",pointerUp);
+    drag=null;
+    host.el._internals.setFormValue(
+      JSON.stringify(
+        slot.assignedElements({flatten:true}).map(el=>el.textContent.trim())
+      )
+    );
+    host.el.dispatchEvent(
+        new CustomEvent("change",{
+            bubbles:true,
+            detail:{
+                order: slot.assignedElements({flatten:true})
+            }
+        })
+    );
+}
+
+slot.addEventListener(
+    "slotchange",
+    refresh
+);
+
+refresh();
+</script>
+</template>
+

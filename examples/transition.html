@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menut · Transiciones (:transition)</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 36rem; margin: 3rem auto; padding: 0 1rem; font-family: var(--font, system-ui, sans-serif); }
+  h2 { margin-top: 2.5rem; font-size: 1.1rem; }
+  p.lead { color: var(--fg-muted); }
+  .stage { padding: var(--space-4); background: var(--bg-card); border: 1px solid var(--hairline); border-radius: var(--radius-card); }
+  .big { font-size: 3.5rem; font-variant-numeric: tabular-nums; text-align: center; margin: .25rem 0 .5rem; }
+  .row { display: flex; gap: .5rem; justify-content: center; margin-top: .75rem; flex-wrap: wrap; }
+  .row input { flex: 1; }
+  .view { padding: var(--space-4); border-radius: var(--radius-card); }
+  .view-a { background: var(--blue-bg, #e8efff); }
+  .view-b { background: var(--green-bg, #e8ffe8); }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; justify-content: space-between; align-items: center; padding: .5rem .25rem; border-bottom: 1px solid var(--hairline); }
+  li:last-child { border-bottom: 0; }
+  .logo-box { font-size: 3rem; text-align: center; padding: 1rem; border-radius: var(--radius-card); }
+</style>
+</head>
+<body>
+  <h1>Transiciones (<code>:transition</code>)</h1>
+  <p class="lead">Cada actualización de un binding con <code>:transition</code> se envuelve en
+  <code>document.startViewTransition()</code>. Modificadores: <code>.fade</code>,
+  <code>.scale</code>, <code>.slideup</code>, y <code>.shared="nombre"</code> para fundir
+  un par viejo/nuevo. Se desactivan solos con <code>prefers-reduced-motion</code>, sin la
+  API (p. ej. Firefox) o con una transición en curso. Los modificadores usan
+  <code>view-transition-class</code> — el CSS de soporte vive en
+  <code>weblin.org/css.css</code> (ver <a href="../docs/api.md#transition">docs/api.md</a>
+  para copiarlo).</p>
+
+  <h2><code>:transition.scale</code> — el número escala</h2>
+  <div class="stage">
+    <output class="big" :transition.scale ::="contador">0</output>
+    <div class="row">
+      <button :on.click="contador--">−</button>
+      <button :on.click="contador++">+</button>
+    </div>
+  </div>
+
+  <h2><code>:transition.fade</code> — el texto se desvanece</h2>
+  <div class="stage">
+    <p style="font-size:1.2rem"><strong :transition.fade ::="titulo">Inicio</strong></p>
+    <div class="row">
+      <button :on.click="rotar()">Cambiar</button>
+    </div>
+  </div>
+
+  <h2><code>:transition.slideup</code> — vistas con <code>:if</code></h2>
+  <div class="stage" :transition.slideup>
+    <template :if="vista === 'a'"><div class="view view-a">Vista A — entra deslizándose hacia arriba</div></template>
+    <template :if="vista === 'b'"><div class="view view-b">Vista B</div></template>
+    <div class="row">
+      <button :on.click="vista = 'a'">A</button>
+      <button :on.click="vista = 'b'">B</button>
+    </div>
+  </div>
+
+  <h2><code>:transition.shared="logo"</code> — morph de un elemento</h2>
+  <div class="stage">
+    <div :transition.shared="logo" class="logo-box view-a" ::="modo === 'sol' ? '☀️' : '🌙'">☀️</div>
+    <div class="row">
+      <button :on.click="modo = 'sol'">Sol</button>
+      <button :on.click="modo = 'luna'">Luna</button>
+    </div>
+    <p class="lead" style="margin:.5rem 0 0">El mismo elemento con <code>view-transition-name: logo</code> funde su contenido al cambiar. Un morph de <em>par</em> (dos elementos distintos con el mismo nombre) no es fiable en el modelo granular: usa un contenedor <code>:transition</code> para animar el cambio de vistas.</p>
+  </div>
+
+  <h2><code>:transition.slideup</code> con <code>:each</code></h2>
+  <div class="stage" :transition.slideup>
+    <ul>
+      <template :each="tareas">
+        <li>
+          <span ::="item.texto"></span>
+          <button :on.click="quitar(item._index)">🗑️</button>
+        </li>
+      </template>
+    </ul>
+    <div class="row">
+      <input :model="nueva" placeholder="Nueva tarea">
+      <button :on.click="anadir()">Añadir</button>
+    </div>
+  </div>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  const titulos = ["Inicio", "Detalles", "Ajustes", "Resumen"];
+  window._ = {
+      contador: 0,
+      titulo: "Inicio",
+      vista: "a",
+      modo: "sol",
+      nueva: "",
+      tareas: [{ texto: "Leer la doc de :transition" }, { texto: "Añadir una fila" }],
+
+      rotar() {
+          _.titulo = titulos[(titulos.indexOf(_.titulo) + 1) % titulos.length];
+      },
+
+      anadir() {
+          const t = _.nueva.trim();
+          if (t) _.tareas.push({ texto: t });
+          _.nueva = "";
+      },
+
+      quitar(i) {
+          _.tareas.splice(i, 1);
+      }
+  };
+
+  _.mount();
+  </script>
+</body>
+</html>

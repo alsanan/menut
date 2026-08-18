@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" id="theme-meta" content="light dark">
+<title>Menut · Componentes</title>
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 44rem; margin: 2rem auto; padding: 0 1rem; overflow-x: clip; }
+  html { overflow-x: clip; }
+  .row { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+  .row .name { flex: 1; }
+
+  .demo { border: 1px solid var(--hairline); border-radius: var(--radius-card); padding: 1rem; margin: 1rem 0; background: var(--bg-card); }
+  .demo h3 { margin: 0 0 .25rem; }
+  .demo .usage { font-size: var(--fs-sm); color: var(--fg-muted); margin: 0 0 .75rem; }
+  .demo .stage { min-height: 2rem; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; align-items: center; }
+  .note { font-size: var(--fs-xs); color: var(--fg-muted); }
+  [theme] { position:fixed; left:1rem; }
+
+  [tabs] > section h2 { margin: 0 0 .75rem; }
+</style>
+</head>
+<body>
+
+  <script>
+  (function() {
+    var saved = localStorage.getItem('theme');
+    if (saved) document.querySelector('[name="color-scheme"]').content = saved;
+  })();
+  </script>
+  <button fab theme :on.click="
+  s=_.qry('meta[name=color-scheme]');
+  g=s.getAttribute('content');
+  switch(g) {
+      case 'light': g='dark'; break;
+      case 'dark': g='light dark'; break;
+      case 'light dark': g='light'; break;
+  }
+  localStorage.setItem('theme',g);
+  s.setAttribute('content',g);">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="moon" aria-hidden="true" class="lucide lucide-moon"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg>
+  </button>
+
+
+  <h1>Componentes (SFC)</h1>
+  <p>Single-file components defined with <code>&lt;define-component&gt;</code> (inline with <code>name</code>, or external with <code>src</code>). Each instance has its own local state; <code>_</code> is local and <code>window._</code> is the global.</p>
+  <p><small>Besides <a href="/menut/">Menut</a>’s own examples. Menut is part of <a href="https://weblin.org/">Weblin</a> catalog.</small></p>
+
+  <!-- ============ Definiciones propias de Menut ============ -->
+
+  <!-- ============ Definiciones externas (componentes weblin convertidos) ============ -->
+
+  <define-component src="components/x-stepper.html"></define-component>
+  <define-component src="components/x-rating.html"></define-component>
+  <define-component src="components/x-color-picker.html"></define-component>
+  <define-component src="components/x-progress.html"></define-component>
+  <define-component src="components/progress-circle.html"></define-component>
+  <define-component src="components/stat-counter.html"></define-component>
+  <define-component src="components/dual-range.html"></define-component>
+  <define-component src="components/x-pagination.html"></define-component>
+  <define-component src="components/x-splitter.html"></define-component>
+  <define-component src="components/scroll-select.html"></define-component>
+  <define-component src="components/tag-input.html"></define-component>
+  <define-component src="components/x-tree-view.html"></define-component>
+  <define-component src="components/x-timeline.html"></define-component>
+  <define-component src="components/drop-uploader.html"></define-component>
+  <define-component src="components/searchable-select.html"></define-component>
+  <define-component src="components/gradient-text.html"></define-component>
+  <define-component src="components/hero-text.html"></define-component>
+  <define-component src="components/text-morph.html"></define-component>
+  <define-component src="components/text-rotator.html"></define-component>
+  <define-component src="components/overlap-text.html"></define-component>
+  <define-component src="components/rainbow-button.html"></define-component>
+  <define-component src="components/hold-button.html"></define-component>
+  <define-component src="components/foot-note.html"></define-component>
+  <define-component src="components/theme-switch.html"></define-component>
+  <define-component src="components/shadow-container.html"></define-component>
+  <define-component src="components/show-when.html"></define-component>
+  <define-component src="components/x-viewport.html"></define-component>
+  <define-component src="components/x-tilt.html"></define-component>
+  <define-component src="components/layered-tilt.html"></define-component>
+  <define-component src="components/image-compare.html"></define-component>
+  <define-component src="components/dot-display.html"></define-component>
+  <define-component src="components/x-code-block.html"></define-component>
+  <define-component src="components/toast-console.html"></define-component>
+  <define-component src="components/input-enhanced.html"></define-component>
+  <define-component src="components/highlighted-input.html"></define-component>
+  <define-component src="components/x-map.html"></define-component>
+  <define-component src="components/vertical-page-progress.html"></define-component>
+  <define-component src="components/sound-click.html"></define-component>
+  <define-component src="components/sound-hover.html"></define-component>
+  <define-component src="components/drag-list.html"></define-component>
+  <define-component src="components/order-list.html"></define-component>
+  <define-component src="components/step-form.html"></define-component>
+  <define-component src="components/field-when.html"></define-component>
+  <define-component src="components/form-enhance.html"></define-component>
+  <define-component src="components/fullscreen-select.html"></define-component>
+  <define-component src="components/fullscreen-menu.html"></define-component>
+  <define-component src="components/sticky-sidebar.html"></define-component>
+  <define-component src="components/server-action.html"></define-component>
+  <define-component src="components/html-load.html"></define-component>
+  <define-component src="components/json-editor.html"></define-component>
+  <define-component src="components/live-reload.html"></define-component>
+  <define-component src="components/date-time.html"></define-component>
+  <define-component src="components/x-markdown.html"></define-component>
+  <define-component src="components/date-picker.html"></define-component>
+  <define-component src="components/date-range-picker.html"></define-component>
+  <define-component src="components/virtual-list.html"></define-component>
+  <define-component src="components/data-grid.html"></define-component>
+  <define-component src="components/scroll-to-top.html"></define-component>
+  <define-component src="components/x-signature.html"></define-component>
+  <define-component src="components/spark-line.html"></define-component>
+  <define-component src="components/x-countdown.html"></define-component>
+  <define-component src="components/x-inspector.html"></define-component>
+  <define-component src="components/lorem-ipsum.html"></define-component>
+  <define-component src="components/x-export.html"></define-component>
+  <define-component src="components/x-cropper.html"></define-component>
+  <define-component src="components/sse-connect.html"></define-component>
+  <define-component src="components/rolling-number.html"></define-component>
+  <define-component src="components/hover-scroll.html"></define-component>
+  <define-component src="components/mini-calendar.html"></define-component>
+  <define-component src="components/lazy-load.html"></define-component>
+  <define-component src="components/preload-links.html"></define-component>
+
+  <!-- ============ Demos agrupados por categorías (tabs weblin) ============ -->
+
+  <div tabs>
+    <div tabbar onwheel="e=event; if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); this.scrollLeft += e.deltaY; }">
+      <input type="radio" name="components-tabs" data-label="Forms &amp; inputs" checked>
+      <input type="radio" name="components-tabs" data-label="Progress &amp; data">
+      <input type="radio" name="components-tabs" data-label="Text effects">
+      <input type="radio" name="components-tabs" data-label="Buttons &amp; feedback">
+      <input type="radio" name="components-tabs" data-label="Layout &amp; nav">
+      <input type="radio" name="components-tabs" data-label="3D &amp; images">
+      <input type="radio" name="components-tabs" data-label="Content &amp; actions">
+    </div>
+
+    <!-- ============ Forms & inputs ============ -->
+
+    <section>
+      <h2>Forms &amp; inputs</h2>
+
+      <div class="demo">
+        <h3>x-stepper</h3>
+        <p class="usage">&lt;x-stepper min="0" max="10" value="3"&gt;</p>
+        <div class="stage"><x-stepper min="0" max="10" value="3"></x-stepper></div>
+      </div>
+
+      <div class="demo">
+        <h3>x-rating</h3>
+        <p class="usage">&lt;x-rating value="2.5" step="0.5"&gt;</p>
+        <div class="stage"><x-rating value="2.5" step="0.5"></x-rating></div>
+      </div>
+
+      <div class="demo">
+        <h3>x-color-picker</h3>
+        <p class="usage">&lt;x-color-picker&gt;&lt;div class="swatch" value="#f00" style="background:#f00"&gt;&lt;/div&gt;…&lt;/x-color-picker&gt;</p>
+        <div class="stage">
+          <x-color-picker>
+            <div class="swatch" value="#f43f5e" style="background:#f43f5e"></div>
+            <div class="swatch" value="#f59e0b" style="background:#f59e0b"></div>
+            <div class="swatch" value="#10b981" style="background:#10b981"></div>
+            <div class="swatch" value="#6366f1" style="background:#6366f1"></div>
+          </x-color-picker>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>dual-range</h3>
+        <p class="usage">&lt;dual-range min="0" max="100" low="25" high="75"&gt;</p>
+        <br>
+        <div class="stage"><dual-range min="0" max="100" low="25" high="75"></dual-range></div>
+      </div>
+
+      <div class="demo">
+        <h3>x-pagination</h3>
+        <p class="usage">&lt;x-pagination total="10" page="1"&gt;</p>
+        <div class="stage"><x-pagination total="10" page="1"></x-pagination></div>
+      </div>
+
+      <div class="demo">
+        <h3>scroll-select</h3>
+        <p class="usage">&lt;scroll-select&gt;&lt;div class="item" value="a"&gt;…&lt;/div&gt;&lt;/scroll-select&gt;</p>
+        <div class="stage">
+          <scroll-select>
+            <div class="item" value="VLC">Val&egrave;ncia</div>
+            <div class="item" value="MAD">Mallorca</div>
+            <div class="item" value="BCN">Barcelona</div>
+            <div class="item" value="SEV">Menorca</div>
+            <div class="item" value="MGA">Alacant</div>
+          </scroll-select>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>tag-input</h3>
+        <p class="usage">&lt;tag-input name="tags" value="apple, mango"&gt;</p>
+        <div class="stage">
+          <tag-input name="tags" value="apple, mango">
+            <option value="apple">Apple</option>
+            <option value="banana">Banana</option>
+            <option value="cherry">Cherry</option>
+          </tag-input>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>searchable-select</h3>
+        <p class="usage">&lt;searchable-select&gt;&lt;span role="option" value="1"&gt;…&lt;/span&gt;&lt;/searchable-select&gt;</p>
+        <div class="stage">
+          <searchable-select>
+            <span role="option" value="1">Apple</span>
+            <span role="option" value="2">Pear</span>
+            <span role="option" value="3">Orange</span>
+            <span role="option" value="4">Banana</span>
+          </searchable-select>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>drop-uploader</h3>
+        <p class="usage">&lt;drop-uploader&gt;</p>
+        <div class="stage"><drop-uploader></drop-uploader></div>
+      </div>
+
+      <div class="demo">
+        <h3>highlighted-input</h3>
+        <p class="usage">&lt;highlighted-input words="lang:,repo:,user:,AND,OR,NOT"&gt;</p>
+        <div class="stage"><highlighted-input words="lang:,repo:,user:,AND,OR,NOT" value="this AND that OR user:me"></highlighted-input></div>
+      </div>
+
+      <div class="demo">
+        <h3>input-enhanced</h3>
+        <p class="usage">&lt;input-enhanced label="Email" hint="..." type="email" required&gt;</p>
+        <div class="stage" style="display:flex;flex-direction:column;gap:1rem;max-width:24rem">
+          <input-enhanced label="Name" placeholder="Your name"></input-enhanced>
+          <input-enhanced label="Email" type="email" hint="We'll never share your email" placeholder="email@example.com" required></input-enhanced>
+          <input-enhanced label="Password" type="password" error="Must be at least 8 characters" placeholder="Min 8 chars"></input-enhanced>
+        </div>
+        <p class="note">Drop-in wrapper: <code>label</code>, <code>hint</code>, <code>error</code> are rendered as field chrome; all other attributes pass straight to the inner <code>&lt;input&gt;</code>. All events are forwarded.</p>
+      </div>
+
+      <div class="demo">
+        <h3>drag-list</h3>
+        <p class="usage">&lt;drag-list name="selected"&gt;&lt;div class="item" slot="source"&gt;…&lt;/div&gt;&lt;div class="item" slot="target"&gt;…&lt;/div&gt;&lt;/drag-list&gt;</p>
+        <div class="stage">
+          <drag-list name="selected">
+            <div class="item" slot="source">Apple</div>
+            <div class="item" slot="source">Pear</div>
+            <div class="item" slot="source">Orange</div>
+            <div class="item" slot="target">Kiwi</div>
+          </drag-list>
+        </div>
+        <p class="note">Drag between panes, double-click to move, or use the arrows. Form-associated: the right pane is submitted with the form.</p>
+      </div>
+
+      <div class="demo">
+        <h3>order-list</h3>
+        <p class="usage">&lt;order-list&gt;&lt;div&gt;…&lt;/div&gt;&lt;/order-list&gt;</p>
+        <div class="stage">
+          <order-list>
+            <div>First</div>
+            <div>Second</div>
+            <div>Third</div>
+            <div>Fourth</div>
+          </order-list>
+          <hr style="margin:1rem 0">
+          <order-list horizontal>
+            <div>One</div>
+            <div>Two</div>
+            <div>Three</div>
+          </order-list>
+        </div>
+        <p class="note">Vertical and horizontal (<code>horizontal</code>). Drag to reorder.</p>
+      </div>
+
+      <div class="demo">
+        <h3>step-form</h3>
+        <p class="usage">&lt;step-form&gt;&lt;div class="step"&gt;…&lt;/div&gt;&lt;/step-form&gt;</p>
+        <div class="stage">
+          <step-form style="min-height:340px">
+            <div class="step">
+              <h4 style="margin:.5rem 0">Step 1</h4>
+              <label>Name <input type="text" placeholder="Your name"></label>
+              <label>Email <input type="email" placeholder="email@example.com"></label>
+            </div>
+            <div class="step">
+              <h4 style="margin:.5rem 0">Step 2</h4>
+              <label>Company <input type="text" placeholder="Your company"></label>
+            </div>
+            <div class="step"><h4 style="margin:.5rem 0">Step 3</h4><p style="margin:.5rem 0">Done.</p></div>
+          </step-form>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>field-when</h3>
+        <p class="usage">&lt;field-when conditions="source=other"&gt;…&lt;/field-when&gt;</p>
+        <div class="stage">
+          <form style="display:flex;flex-direction:column;gap:1rem">
+            <label>Type
+              <select name="source">
+                <option value="a">A</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <field-when conditions="source=other">
+              <label>Specify <input name="source-other"></label>
+            </field-when>
+          </form>
+        </div>
+        <p class="note">Shows the field only when «Type» = «Other».</p>
+      </div>
+
+      <div class="demo">
+        <h3>form-enhance</h3>
+        <p class="usage">&lt;form-enhance&gt;&lt;form&gt;…&lt;/form&gt;&lt;/form-enhance&gt;</p>
+        <div class="stage">
+          <form-enhance>
+            <form action="components/confirm.php">
+              <input name="email" type="email" placeholder="email@example.com" required>
+              <button type="submit">Submit</button>
+            </form>
+          </form-enhance>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>fullscreen-select</h3>
+        <p class="usage">&lt;fullscreen-select name="x"&gt;&lt;option&gt;…&lt;/option&gt;&lt;/fullscreen-select&gt;</p>
+        <div class="stage">
+          <fullscreen-select name="x">
+            <option value="">Choose…</option>
+            <option value="1">Option 1</option>
+            <option value="2">Option 2</option>
+            <option value="3">Option 3</option>
+          </fullscreen-select>
+        </div>
+        <p class="note">Basado en <code>&lt;base-select&gt;</code> (Chrome 137+).</p>
+      </div>
+
+      <div class="demo">
+        <h3>date-picker</h3>
+        <p class="usage">&lt;date-picker value="2026-08-11" lang="en"&gt;&lt;/date-picker&gt;</p>
+        <div class="stage"><date-picker value="2026-08-11" lang="en"></date-picker></div>
+        <p class="note">Styled wrapper around the native <code>&lt;input type="date"&gt;</code> with a formatted readout.</p>
+      </div>
+
+      <div class="demo">
+        <h3>date-range-picker</h3>
+        <p class="usage">&lt;date-range-picker min="2026-08-01" max="2026-08-31" start="2026-08-10" end="2026-08-20"&gt;&lt;/date-range-picker&gt;</p>
+        <div class="stage"><date-range-picker min="2026-08-01" max="2026-08-31" start="2026-08-10" end="2026-08-20"></date-range-picker></div>
+        <p class="note">Dual-handle slider mapped to dates; thumbs show formatted start/end labels.</p>
+      </div>
+
+      <div class="demo">
+        <h3>mini-calendar</h3>
+        <p class="usage">&lt;mini-calendar value="2026-08-14" month="2026-08" lang="en"&gt;&lt;/mini-calendar&gt;</p>
+        <div class="stage"><mini-calendar value="2026-08-14" month="2026-08" lang="en"></mini-calendar></div>
+        <p class="note">Month grid (Sunday first). Prev/next navigation, today highlight and day selection.</p>
+        <p class="usage" style="margin-top:1rem">&lt;mini-calendar value="2026-08-14" month="2026-08" lang="es"&gt;&lt;/mini-calendar&gt;</p>
+        <div class="stage"><mini-calendar value="2026-08-14" month="2026-08" lang="es"></mini-calendar></div>
+        <p class="note">Month grid (Monday first for Spanish locale).</p>
+        <p class="usage" style="margin-top:1rem">&lt;mini-calendar value="2026-08-14" week lang="en"&gt;&lt;/mini-calendar&gt;</p>
+        <div class="stage"><mini-calendar value="2026-08-14" week lang="en"></mini-calendar></div>
+        <p class="note">Week view: shows only the 7 days of the current week containing <code>value</code>.</p>
+      </div>
+    </section>
+
+    <!-- ============ Progress & data ============ -->
+
+    <section>
+      <h2>Progress &amp; data</h2>
+
+      <div class="demo">
+        <h3>x-progress</h3>
+        <p class="usage">&lt;x-progress value="72" danger&gt;</p>
+        <div class="stage">
+          <x-progress value="30"></x-progress>
+          <x-progress value="72" danger></x-progress>
+          <x-progress value="50" warning></x-progress>
+          <x-progress value="80" info></x-progress>
+          <x-progress indeterminate></x-progress>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>progress-circle</h3>
+        <p class="usage">&lt;progress-circle style="--value:60,25,15"&gt;</p>
+        <div class="stage" style="display:flex;gap:1rem;align-items:center">
+          <progress-circle style="--value:45,25;">45,25</progress-circle>
+          <progress-circle style="--value: 60, 25, 15;--chart-1: #5394fd;--chart-2: #f59e0b;--chart-3: #10b981;">60,25,15</progress-circle>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>stat-counter</h3>
+        <p class="usage">&lt;stat-counter number="1234" duration="2"&gt;</p>
+        <div class="stage">
+          <stat-counter number="1234" duration="1"></stat-counter>
+          <stat-counter number="99.5" duration="1"></stat-counter>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>x-viewport</h3>
+        <p class="usage">&lt;x-viewport&gt;</p>
+        <div class="stage">
+          <x-viewport>
+            <p>Resize the window to see the <code>size</code> attribute change. Current: <code id="vp-size">—</code></p>
+          </x-viewport>
+        </div>
+        <p class="note">Sets <code>--vv-width</code> and the <code>size</code> attribute (<code>xs</code>/<code>sm</code>/<code>md</code>/<code>lg</code>/<code>xl</code>) on the host from the visual viewport.</p>
+      </div>
+
+      <div class="demo">
+        <h3>data-grid</h3>
+        <p class="usage">&lt;data-grid value="[{…}]" editable key-field="id"&gt;&lt;/data-grid&gt;</p>
+        <div class="stage"><data-grid id="demo-grid" value='[{&quot;name&quot;:&quot;Ada&quot;,&quot;role&quot;:&quot;Dev&quot;,&quot;active&quot;:true},{&quot;name&quot;:&quot;Grace&quot;,&quot;role&quot;:&quot;Ops&quot;,&quot;active&quot;:false}]' key-field="id"></data-grid></div>
+        <p class="note">Inline editable table with add/duplicate/delete per row. Emits <code>change</code>.</p>
+      </div>
+
+      <div class="demo">
+        <h3>x-export</h3>
+        <p class="usage">&lt;x-export data="[{…}]" format="csv"&gt;&lt;/x-export&gt;</p>
+        <div class="stage"><x-export data='[{&quot;name&quot;:&quot;Ada&quot;,&quot;role&quot;:&quot;Dev&quot;},{&quot;name&quot;:&quot;Grace&quot;,&quot;role&quot;:&quot;Ops&quot;}]' format="csv" filename="team.csv"></x-export></div>
+      </div>
+
+      <div class="demo">
+        <h3>spark-line</h3>
+        <p class="usage">&lt;spark-line values="12,19,3,5,2,3" stroke="#6366f1"&gt;&lt;/spark-line&gt;</p>
+        <div class="stage" style="display:flex;align-items:center;gap:1rem">
+          <spark-line values="12,19,3,5,2,3,15,8,13" stroke="var(--accent)" fill="var(--accent)"></spark-line>
+          <span style="font-size:var(--fs-sm);color:var(--fg-muted)">trend</span>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>x-countdown</h3>
+        <p class="usage">&lt;x-countdown until="2026-12-31T23:59:59" format="d:h:m:s"&gt;&lt;/x-countdown&gt;</p>
+        <div class="stage"><x-countdown until="2026-12-31T23:59:59" format="d:h:m:s" lang="en"></x-countdown></div>
+      </div>
+
+      <div class="demo">
+        <h3>x-inspector</h3>
+        <p class="usage">&lt;x-inspector value='{"a":1,"b":[true,false]}'&gt;&lt;/x-inspector&gt;</p>
+        <div class="stage"><x-inspector value='{&quot;title&quot;:&quot;Menut&quot;,&quot;version&quot;:1,&quot;tags&quot;:[&quot;html-first&quot;],&quot;meta&quot;:{&quot;stars&quot;:42,&quot;public&quot;:true}}'></x-inspector></div>
+      </div>
+    </section>
+
+    <!-- ============ Text effects ============ -->
+
+    <section>
+      <h2>Text effects</h2>
+
+      <div class="demo">
+        <h3>gradient-text</h3>
+        <p class="usage">&lt;gradient-text style="--gradient-from:#6366f1;--gradient-to:#ec4899"&gt;</p>
+        <div class="stage"><gradient-text style="--gradient-from:#6366f1;--gradient-to:#ec4899">Gradient Text</gradient-text></div>
+      </div>
+
+      <div class="demo">
+        <h3>hero-text</h3>
+        <p class="usage">&lt;hero-text style="--hero-hue:320"&gt;…&lt;small&gt;Sub&lt;/small&gt;&lt;/hero-text&gt;</p>
+        <div class="stage"><hero-text style="--hero-hue:320">CSS TEXT</hero-text></div>
+      </div>
+
+      <div class="demo">
+        <h3>text-morph</h3>
+        <p class="usage">&lt;text-morph&gt;word1 word2 word3&lt;/text-morph&gt;</p>
+        <div class="stage"><text-morph>HTML CSS JS HTML-first</text-morph></div>
+      </div>
+
+      <div class="demo">
+        <h3>text-rotator</h3>
+        <p class="usage">&lt;text-rotator words="hello,world,foo"&gt;</p>
+        <div class="stage"><text-rotator words="reactive,minimalist,web,native"></text-rotator></div>
+      </div>
+
+      <div class="demo">
+        <h3>overlap-text</h3>
+        <p class="usage">&lt;overlap-text&gt;Front&lt;/overlap-text&gt; · &lt;overlap-text back&gt;</p>
+        <div class="stage" style="display:flex;flex-direction:column;gap:1rem;align-items:flex-start">
+          <overlap-text>Front</overlap-text>
+          <overlap-text back>Back</overlap-text>
+          <overlap-text alter>Alter</overlap-text>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>rolling-number</h3>
+        <p class="usage">&lt;rolling-number value="1234" duration="600"&gt;&lt;/rolling-number&gt;</p>
+        <div class="stage" style="font-size:2rem;font-weight:700">
+          <rolling-number id="demo-rolling" :value="rn" duration="600"></rolling-number>
+          <input type="text" size="xs" :model="rn">
+        </div>
+        <p class="note">Mechanical counter effect. Change <code>value</code> to animate the digits.</p>
+      </div>
+
+      <div class="demo">
+        <h3>dot-display</h3>
+        <p class="usage">&lt;dot-display style="--width:128;--height:16" text="MENUT"&gt;</p>
+        <div class="stage"><dot-display style="--width:100;--height:16" text="MENUT"></dot-display></div>
+      </div>
+    </section>
+
+    <!-- ============ Buttons & feedback ============ -->
+
+    <section>
+      <h2>Buttons &amp; feedback</h2>
+
+      <div class="demo">
+        <h3>rainbow-button</h3>
+        <p class="usage">&lt;rainbow-button&gt;Click&lt;/rainbow-button&gt; · &lt;rainbow-button outline&gt;</p>
+        <div class="stage" style="display:flex;gap:1rem">
+          <rainbow-button>Click</rainbow-button>
+          <rainbow-button outline>Outline</rainbow-button>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>hold-button</h3>
+        <p class="usage">&lt;hold-button&gt;Hold to confirm&lt;/hold-button&gt;</p>
+        <div class="stage"><hold-button>Hold to confirm</hold-button></div>
+      </div>
+
+      <div class="demo">
+        <h3>toast-console</h3>
+        <p class="usage">&lt;toast-console&gt;</p>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button onclick="console.error('🔥 Network request failed',{status:500,url:'/api/data'})" style="padding:.4rem .9rem;border-radius:var(--radius);border:1px solid var(--red,#e00);background:transparent;color:var(--red,#e00);cursor:pointer;font-size:var(--fs-sm)">Simulate error</button>
+          <button onclick="console.warn('⚠️ Deprecated API used',{endpoint:'/v1/old'})" style="padding:.4rem .9rem;border-radius:var(--radius);border:1px solid var(--orange,#f80);background:transparent;color:var(--orange,#f80);cursor:pointer;font-size:var(--fs-sm)">Simulate warning</button>
+          <button onclick="console.info('ℹ️ User logged in',{id:42,name:'Alice'})" style="padding:.4rem .9rem;border-radius:var(--radius);border:1px solid var(--blue,#08f);background:transparent;color:var(--blue,#08f);cursor:pointer;font-size:var(--fs-sm)">Simulate info</button>
+        </div>
+        <div class="stage">
+          <toast-console active level="error,warn,info" timeout="6000" ready></toast-console>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>theme-switch</h3>
+        <p class="usage">&lt;theme-switch&gt; · &lt;theme-switch full&gt;</p>
+        <div class="stage" style="display:flex;gap:1rem;align-items:center">
+          <theme-switch></theme-switch>
+          <theme-switch full></theme-switch>
+        </div>
+        <p class="note">Smart dual-state toggle: only light and dark. Clicking the option matching the system re-enables auto-following; clicking the opposite locks the override. Without <code>full</code> it is a round fab; with <code>full</code> the two options show inline.</p>
+      </div>
+    </section>
+
+    <!-- ============ Layout & navigation ============ -->
+
+    <section>
+      <h2>Layout &amp; nav</h2>
+
+      <div class="demo">
+        <h3>x-tree-view</h3>
+        <p class="usage">&lt;x-tree-view&gt;&lt;ul&gt;…&lt;/ul&gt;&lt;/x-tree-view&gt;</p>
+        <div class="stage">
+          <x-tree-view>
+            <ul>
+              <li><details open><summary>src</summary>
+                <ul>
+                  <li>menut.js</li><li>menut.min.js</li>
+                  <li>
+                    <details><summary>nested</summary>
+                      <ul><li>menut.js</li><li>menut.min.js</li></ul>
+                    </details>
+                  </li>
+                </ul>
+              </details></li>
+              <li><details><summary>examples</summary>
+                <ul><li>components.html</li></ul>
+              </details></li>
+            </ul>
+          </x-tree-view>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>x-timeline</h3>
+        <p class="usage">&lt;x-timeline&gt;&lt;div class="item"&gt;&lt;time&gt;…&lt;/time&gt;&lt;strong&gt;…&lt;/strong&gt;&lt;/div&gt;&lt;/x-timeline&gt;</p>
+        <div class="stage">
+          <x-timeline>
+            <div class="item"><time>2024</time><strong>First release</strong>Menut is born.</div>
+            <div class="item"><time>2025</time><strong>SFC components</strong>Custom elements.</div>
+            <div class="item"><time>2026</time><strong>Catalog</strong>Components converted from Weblin.</div>
+          </x-timeline>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>x-splitter</h3>
+        <p class="usage">&lt;x-splitter&gt;&lt;div slot="start"&gt;…&lt;/div&gt;&lt;div slot="end"&gt;…&lt;/div&gt;&lt;/x-splitter&gt;</p>
+        <div class="stage">
+          <x-splitter style="height:8rem">
+            <div slot="start"><strong>Left</strong><br>Drag the divider.</div>
+            <div slot="end"><strong>Right</strong><br>Content panel.</div>
+          </x-splitter>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>shadow-container</h3>
+        <p class="usage">&lt;shadow-container&gt;…&lt;/shadow-container&gt;</p>
+        <div class="stage">
+          <shadow-container style="max-height:6rem">
+            <p>Item 1 — sample content to scroll.</p>
+            <p>Item 2 — more content.</p>
+            <p>Item 3 — more content.</p>
+            <p>Item 4 — more content.</p>
+            <p>Item 5 — more content.</p>
+          </shadow-container>
+        </div>
+        <p class="usage">&lt;shadow-container horizontal&gt;…&lt;/shadow-container&gt;</p>
+        <div class="stage">
+          <style>shadow-container>p { white-space:nowrap; }</style>
+          <shadow-container style="max-width:100%;display:flex" horizontal>
+            <p>Item 1 — sample content to scroll.</p>
+            <p>Item 2 — more content.</p>
+            <p>Item 3 — more content.</p>
+            <p>Item 4 — more content.</p>
+            <p>Item 5 — more content.</p>
+          </shadow-container>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>foot-note</h3>
+        <p class="usage">&lt;foot-note num="1"&gt;Text&lt;/foot-note&gt;</p>
+        <div class="stage"><p>The most cited paper in history<foot-note num="1">Lowry, O. H., et al. <em>J. Biol. Chem.</em> 193, 265–275 (1951).</foot-note> describes a biochemical assay.</p></div>
+      </div>
+
+      <div class="demo">
+        <h3>x-code-block</h3>
+        <p class="usage">&lt;x-code-block lang="js"&gt;…&lt;/x-code-block&gt;</p>
+        <div class="stage"><x-code-block lang="js">window._ = { counter: 0 };
+_.mount();</x-code-block></div>
+      </div>
+
+      <div class="demo">
+        <h3>show-when</h3>
+        <p class="usage">&lt;show-when has-param="debug"&gt;…&lt;/show-when&gt;</p>
+        <div class="stage" style="display:flex;flex-direction:column;gap:.5rem">
+          <show-when has-lang="es"><kbd>has-lang="es"</kbd> — visible if browser language includes <code>es</code></show-when>
+          <show-when has-lang="ca"><kbd>has-lang="ca"</kbd> — visible if browser language includes <code>ca</code></show-when>
+          <show-when has-network="online"><kbd>has-network="online"</kbd> — visible when online</show-when>
+          <show-when has-network="offline"><kbd>has-network="offline"</kbd> — visible when offline</show-when>
+          <show-when has-media="(prefers-color-scheme: dark)"><kbd>has-media="(prefers-color-scheme: dark)"</kbd> — visible in dark mode</show-when>
+          <show-when has-media="(min-width: 768px)"><kbd>has-media="(min-width: 768px)"</kbd> — visible on wide screens</show-when>
+          <show-when has-support="display: grid"><kbd>has-support="display: grid"</kbd> — visible if CSS supports <code>display: grid</code></show-when>
+          <show-when has-param="demo"><kbd>has-param="demo"</kbd> — visible if URL has <code>?demo</code></show-when>
+          <show-when has-param="lang=ca"><kbd>has-param="lang=ca"</kbd> — visible if URL has <code>?lang=ca</code></show-when>
+          <show-when has-hash="demo"><kbd>has-hash="demo"</kbd> — visible if hash is <code>#demo</code></show-when>
+          <label style="margin-top:.5rem"><input type="checkbox" switch onchange="location.hash= this.checked?'#demo':'#nodemo'"> Toggle hash to #demo</label>
+          <show-when has-lang="es" has-network="online" match-any><kbd>has-lang="es" has-network="online" match-any</kbd> — OR: visible if Spanish <em>or</em> online</show-when>
+          <show-when has-lang="es" has-network="online"><kbd>has-lang="es" has-network="online"</kbd> — AND: visible only if Spanish <em>and</em> online</show-when>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>fullscreen-menu</h3>
+        <p class="usage">&lt;fullscreen-menu&gt;&lt;a href="#"&gt;…&lt;/a&gt;&lt;/fullscreen-menu&gt;
+        <br>Shows a top-right button with access to the defined menu options.
+        </p>
+        <div class="stage">
+          <fullscreen-menu>
+            <a href="#">Home</a>
+            <a href="#">Components</a>
+            <a href="#">Docs</a>
+          </fullscreen-menu>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>live-reload</h3>
+        <p class="usage">&lt;live-reload watch-css&gt;</p>
+        <div class="stage">
+          <live-reload watch-css></live-reload>
+          <p style="margin:0">Invisible: watches this page’s CSS/HTML changes and reloads automatically.</p>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>scroll-to-top</h3>
+        <p class="usage">&lt;scroll-to-top offset="200"&gt;&lt;/scroll-to-top&gt;</p>
+        <p class="note">The FAB is fixed to the viewport and floats globally once you scroll past <code>offset</code> pixels.</p>
+      </div>
+
+      <div class="demo">
+        <h3>hover-scroll</h3>
+        <p class="usage">&lt;hover-scroll style="height:8rem"&gt;Long content…&lt;/hover-scroll&gt;</p>
+        <div class="stage">
+          <hover-scroll style="height:8rem; padding-right:.5rem">
+            <p style="margin:0 0 .5rem">Hover this box to reveal the scrollbar.</p>
+            <p style="margin:0 0 .5rem">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <p style="margin:0 0 .5rem">Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+            <p style="margin:0 0 .5rem">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+            <p style="margin:0">Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+          </hover-scroll>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>lazy-load</h3>
+        <p class="usage">&lt;lazy-load&gt;&lt;template&gt;…&lt;/template&gt;&lt;/lazy-load&gt;</p>
+        <p class="note">Content inside the <code>&lt;template&gt;</code> is rendered only when the component enters the viewport. Emits <code>lazy-load:visible</code> for infinite scroll scenarios.</p>
+        <div class="stage">
+          <lazy-load>
+            <template>
+              <div style="padding:1rem;border:1px solid var(--hairline);border-radius:var(--radius-card)">
+                <p style="margin:0">This content was lazily loaded when visible.</p>
+              </div>
+            </template>
+          </lazy-load>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>preload-links</h3>
+        <p class="usage">&lt;preload-links on="hover" intercept&gt;&lt;a href="https://example.com"&gt;…&lt;/a&gt;&lt;/preload-links&gt;</p>
+        <p class="note">Preloads linked pages on hover/focus/pointerdown. If <code>intercept</code> is set, clicks serve from cache instantly.</p>
+        <div class="stage">
+          <preload-links on="hover">
+            <a href="https://example.com" style="margin-right:1rem" target="_blank">example.com (hover to preload)</a>
+            <a href="https://httpbin.org/html" style="margin-right:1rem" target="_blank">httpbin.org</a>
+            <a href="https://info.cern.ch" target="_blank">info.cern.ch</a>
+          </preload-links>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 3D & images ============ -->
+
+    <section>
+      <h2>3D &amp; images</h2>
+
+      <div class="demo">
+        <h3>x-tilt</h3>
+        <p class="usage">&lt;x-tilt depth="100" scale="1"&gt;…&lt;/x-tilt&gt;</p>
+        <div class="stage"><x-tilt depth="100" scale="1" style="max-width:100%"><div style="padding:1rem;border:1px solid var(--hairline);border-radius:var(--radius-card)"><h4>Title</h4><p style="margin:0">3D-tilted content.</p></div></x-tilt></div>
+      </div>
+
+      <div class="demo">
+        <h3>layered-tilt</h3>
+        <p class="usage">&lt;layered-tilt max="15" scale="1.05"&gt;&lt;div layer="40"&gt;…&lt;/div&gt;&lt;/layered-tilt&gt;</p>
+        <div class="stage"><layered-tilt max="15" scale="1.05"><div layer="40" style="padding:1rem;border:1px solid var(--hairline);border-radius:var(--radius-card)">Front</div><div layer="-20" style="padding:1rem;border:1px solid var(--hairline);border-radius:var(--radius-card)">Back</div></layered-tilt></div>
+      </div>
+
+      <div class="demo">
+        <h3>image-compare</h3>
+        <p class="usage">&lt;image-compare&gt;&lt;img src="…"&gt;&lt;img src="…"&gt;&lt;/image-compare&gt;</p>
+        <div class="stage">
+          <image-compare style="max-width:100%">
+            <img src="https://picsum.photos/seed/a/400/240" alt="before">
+            <img src="https://picsum.photos/seed/b/400/240" alt="after">
+          </image-compare>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>x-map</h3>
+        <style>
+        html:has(meta[name="color-scheme"]:not([content~="light"])) x-map { filter: brightness(.6) contrast(2) saturate(2); }
+        </style>
+        <p class="usage">&lt;x-map lat="39.349222" lng="-0.32394" zoom="13" marker&gt;</p>
+        <div class="stage"><x-map lat="39.349222" lng="-0.32394" zoom="13" marker></x-map></div>
+        <p class="note">Loads Leaflet from CDN asynchronally (needs network).</p>
+      </div>
+
+      <div class="demo">
+        <h3>sound-click / sound-hover</h3>
+        <p class="usage">&lt;sound-click src="…"&gt;</p>
+        <div class="stage" style="display:flex;gap:1rem">
+          <sound-click><button>Click</button></sound-click>
+          <sound-hover sound="3"><button>Hover</button></sound-hover>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>x-signature</h3>
+        <p class="usage">&lt;x-signature pen-color="#0f172a" background="#ffffff"&gt;&lt;/x-signature&gt;</p>
+        <div class="stage"><x-signature id="demo-sig" pen-color="#0f172a" background="#ffffff"></x-signature></div>
+      </div>
+
+      <div class="demo">
+        <h3>x-cropper</h3>
+        <p class="usage">&lt;x-cropper src="photo.jpg" aspect-ratio="1"&gt;&lt;/x-cropper&gt;</p>
+        <div class="stage"><x-cropper id="demo-crop" src="https://picsum.photos/seed/crop/400/300" aspect-ratio="1"></x-cropper></div>
+      </div>
+    </section>
+
+    <!-- ============ Content & actions ============ -->
+
+    <section>
+      <h2>Content &amp; actions</h2>
+
+      <div class="demo">
+        <h3>sticky-sidebar</h3>
+        <p class="usage">&lt;sticky-sidebar style="width:280px"&gt;…&lt;/sticky-sidebar&gt;</p>
+        <div class="stage">
+          <div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem;margin-bottom:1rem">
+            <p style="margin:0">Block 1 above the sidebar — scroll to see it stick.</p>
+          </div>
+          <div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem;margin-bottom:1rem">
+            <p style="margin:0">Block 2 above the sidebar.</p>
+          </div>
+          <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+            <sticky-sidebar style="width:220px"><div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem">Fixed (sticky) sidebar.</div></sticky-sidebar>
+            <div style="flex:1;display:flex;flex-direction:column;gap:1rem">
+              <div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem;min-height:6rem">Row A</div>
+              <div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem;min-height:6rem">Row B</div>
+              <div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem;min-height:6rem">Row C</div>
+              <div style="border:1px solid var(--hairline);border-radius:var(--radius-card);padding:1rem;min-height:6rem">Row D</div>
+            </div>
+          </div>
+        </div>
+        <p class="note">Scroll the page: the sidebar stays fixed while the rows scroll.</p>
+      </div>
+
+      <div class="demo">
+        <h3>server-action</h3>
+        <p class="usage">&lt;server-action action="append" target="#sa-list"&gt;&lt;li&gt;…&lt;/li&gt;&lt;/server-action&gt;</p>
+        <div class="stage">
+          <server-action init></server-action>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button :on.click="saAppend()">Add row</button>
+            <button :on.click="saConfirm()">Confirm…</button>
+            <button :on.click="saAsk()">Ask…</button>
+          </div>
+          <ul id="sa-list" style="list-style:none;padding:0;margin-top:1rem"><li>Initial row</li></ul>
+          <p id="sa-result" style="margin-top:.5rem;font-size:var(--fs-sm);color:var(--fg-muted)"></p>
+        </div>
+        <p class="note">Push-based engine: the component runs its action when it appears. These buttons inject sample instances; <code>confirm</code>/<code>ask</code> POST to the demo endpoints <code>components/confirm.php</code> / <code>components/ask.php</code>. The result shows below.</p>
+      </div>
+
+      <div class="demo">
+        <h3>html-load</h3>
+        <p class="usage">&lt;html-load src="components/frag.html" target="#hl-zone" swap="beforeend"&gt;</p>
+        <div class="stage">
+          <div id="hl-zone" style="min-height:2rem"></div>
+          <html-load src="components/frag.html" target="#hl-zone" swap="beforeend"></html-load>
+        </div>
+        <p class="note">With <code>every</code> attribute for polling (removes the attribute to stop):</p>
+        <div class="stage">
+          <div id="hl-poll-zone" style="min-height:2rem;font-family:monospace"></div>
+          <html-load src="components/time-fragment.php" target="#hl-poll-zone" swap="inner" every="5000"></html-load>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>json-editor</h3>
+        <p class="usage">&lt;json-editor value='{"title":"Menut","version":1}'&gt;</p>
+        <div class="stage">
+          <json-editor value='{"title":"Menut","version":1,"tags":["html-first"]}'></json-editor>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>date-time</h3>
+        <p class="usage">&lt;date-time format="H:i:s"&gt; · &lt;date-time format="…" date="…" relative&gt;</p>
+        <div class="stage" style="display:flex;flex-direction:column;gap:.5rem">
+          <p style="margin:0"><date-time format="H:i:s"></date-time> <small>(seconds — updates every 1s)</small></p>
+          <p style="margin:0"><date-time format="d/m/Y H:i"></date-time> <small>(minutes — updates every 1min)</small></p>
+          <p style="margin:0"><date-time format="l, d \of F Y"></date-time> <small>(date — updates hourly)</small></p>
+          <p style="margin:0"><date-time format="i:s" :date="haceMinutos" relative lang="es"></date-time> <small>(relative es — units follow the format)</small></p>
+          <p style="margin:0"><date-time format="i:s" :date="haceMinutos" relative></date-time> <small>(relative en — default)</small></p>
+        </div>
+        <p class="note">PHP-style <code>format</code> (<a href="https://www.php.net/manual/en/datetime.format.php" target="_blank">date() syntax</a>). Auto-updates by the smallest unit: <code>s</code> → 1s, <code>i</code> → 1min, otherwise 1h. <code>relative</code> shows a localized «Hace …» (Intl) choosing the unit from the format; <code>lang</code> sets the locale (default <code>en</code>).</p>
+      </div>
+
+      <div class="demo">
+        <h3>x-markdown</h3>
+        <p class="usage">&lt;x-markdown&gt;# Hello…&lt;/x-markdown&gt; · &lt;x-markdown src="article.md"&gt;&lt;/x-markdown&gt;</p>
+        <div class="stage"><x-markdown>## Menut
+A **micro** framework for HTML-first components.
+
+- Reactive
+- No build step
+- Native APIs first</x-markdown></div>
+        <p class="note">Renders Markdown to HTML using <code>marked.js</code> loaded from CDN. No sanitization is applied.</p>
+      </div>
+
+      <div class="demo">
+        <h3>lorem-ipsum</h3>
+        <p class="usage">&lt;lorem-ipsum size="words:30"&gt; · &lt;lorem-ipsum size="paragraphs:2"&gt;</p>
+        <div class="stage"><lorem-ipsum size="words:30"></lorem-ipsum></div>
+      </div>
+
+      <div class="demo">
+        <h3>virtual-list</h3>
+        <p class="usage">&lt;virtual-list style="height:12rem;overflow:auto"&gt;&lt;div&gt;item 1&lt;/div&gt;…&lt;/virtual-list&gt;</p>
+        <div class="stage"><virtual-list id="demo-vlist" style="height:12rem;overflow:auto;border:1px solid var(--hairline);border-radius:var(--radius-card)"></virtual-list></div>
+      </div>
+
+      <div class="demo">
+        <h3>sse-connect</h3>
+        <p class="usage">&lt;sse-connect src="components/sse-stream.php" append&gt;&lt;/sse-connect&gt;</p>
+        <ul id="sse-list" style="list-style:none;padding:0;margin:0 0 .5rem"><li>Initial row</li></ul>
+        <sse-connect src="components/sse-stream.php" append></sse-connect>
+        <p class="note">Opens an SSE connection and appends each message as HTML after the component. Here the server pushes <code>&lt;server-action&gt;</code> fragments that append rows to the list.</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  // Visible result of server-action in the demo.
+  // confirm/ask are dialogs: their `done` fires when the dialog OPENS, so the
+  // result is read from the dialog itself (submit / cancel / returnValue).
+  const saSet = (msg) => {
+      const r = document.querySelector('#sa-result');
+      if (r) r.textContent = 'Result: ' + msg;
+  };
+  new MutationObserver(() => {
+      for (const d of document.querySelectorAll('dialog[server-action]')) {
+          if (d.__saWired) continue;
+          d.__saWired = true;
+          // Confirm / option button → the submitter carries the answer.
+          d.addEventListener('submit', (e) => {
+              const s = e.submitter;
+              if (s && s.name === 'confirmed') saSet(s.value === 'true' ? '✓ confirmed.' : '✗ cancelled.');
+              else if (s && s.name === 'value') saSet('chosen option = «' + s.value + '».');
+              else if (s) saSet(s.name + ' = «' + s.value + '».');
+          });
+          // ESC → cancel.
+          d.addEventListener('cancel', () => saSet('cancelled (Esc).'));
+          // On close: if there was no submit (e.g. cancel), use returnValue.
+          d.addEventListener('close', () => {
+              const r = document.querySelector('#sa-result');
+              if (!r || /^Result/.test(r.textContent)) return;
+              if (d.returnValue) saSet('«' + d.returnValue + '».');
+              else saSet('cancelled.');
+          });
+      }
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // Other actions (append, etc.) complete via their `done`.
+  document.addEventListener('server-action:done', (e) => {
+      const a = e.detail.action;
+      if (a === 'confirm' || a === 'ask') return;   // lo gestiona el dialog
+      saSet(a === 'append' ? 'row added.' : 'action «' + a + '» completed.');
+  });
+  document.addEventListener('server-action:error', (e) => {
+      const r = document.querySelector('#sa-result');
+      if (r) r.textContent = 'Error: ' + ((e.detail && e.detail.error && e.detail.error.message) || 'desconocido');
+  });
+
+  window._ = {
+      rn: 1234,
+      label: "today",
+      haceMinutos: new Date(Date.now() - 5 * 60000).toISOString(),
+
+      saAppend() {
+          document.body.insertAdjacentHTML('beforeend', '<server-action action="append" target="#sa-list"><li>New row</li></server-action>');
+      },
+
+      saConfirm() {
+          saSet('waiting for confirmation…');
+          document.body.insertAdjacentHTML('beforeend', '<server-action action="confirm" url="components/confirm.php" id="cf-1" title="Delete?" confirm-label="Delete" cancel-label="Cancel"></server-action>');
+      },
+
+      saAsk() {
+          saSet('waiting for answer…');
+          document.body.insertAdjacentHTML('beforeend', '<server-action action="ask" url="components/ask.php" id="q-1" title="Choose an option"><option value="a">Option A</option><option value="b">Option B</option></server-action>');
+      }
+  };
+
+  // Populate virtual-list demo with enough items to scroll.
+  (function() {
+      const vl = document.getElementById('demo-vlist');
+      if (!vl) return;
+      for (let i = 1; i <= 500; i++) {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:.5rem 1rem;border-bottom:1px solid var(--hairline);';
+          div.textContent = 'Item ' + i;
+          vl.appendChild(div);
+      }
+  })();
+
+  _.mount();
+  </script>
+
+  <scroll-to-top offset="200"></scroll-to-top>
+</body>
+</html>

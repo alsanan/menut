@@ -1,0 +1,120 @@
+<!--
+  @component theme-switch
+  @description Smart dual-state theme toggle: light and dark only. Clicking the option matching the system re-enables auto-following; clicking the opposite locks the override. Saves to localStorage.
+  @usage <theme-switch> (round fab) · <theme-switch full> (two inline buttons)
+  @impl Smart toggle per Lea Verou's approach: only two visible states (light/dark). If the chosen theme matches the system, auto-following resumes. If it differs, the override persists. Without `full`: round FAB. With `full`: two inline buttons.
+-->
+<template shadowrootmode="open">
+<style>
+:host {
+  display: inline-flex;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--bg-card, oklch(0.97 0.005 90));
+  border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+  box-shadow: var(--shadow-card, 0 1px 3px oklch(0 0 0 / 0.06));
+  overflow: hidden;
+}
+.btn {
+  padding: .5rem .75rem;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: background .15s, color .15s, box-shadow .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-muted, oklch(0.6 0.01 90));
+  border: none;
+  background: transparent;
+}
+.btn.active {
+  color: var(--fg, oklch(0.15 0.01 90));
+  background: var(--bg, oklch(0.99 0.005 90));
+  box-shadow: inset 0 1px 3px oklch(0 0 0 / 0.1);
+}
+.btn:not(.active):hover {
+  background: color-mix(in oklab, var(--bg, oklch(0.99 0.005 90)) 50%, transparent);
+}
+
+/* ---- fab mode (no [full]): single round button ---- */
+:host(:not([full])) {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+}
+:host(:not([full])) .btn {
+  display: none;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+:host(:not([full])) .btn.active {
+  display: flex;
+}
+</style>
+<button class="btn" data-mode="light" title="Light mode">☀️</button>
+<button class="btn" data-mode="dark" title="Dark mode">🌙</button>
+
+<script>
+const host = this
+const root = host.el.shadowRoot
+const btns = root.querySelectorAll('.btn')
+const full = host.el.hasAttribute('full')
+
+function getSystemTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function applyTheme(mode) {
+  var meta = document.querySelector('[name=color-scheme]')
+  meta.content = mode
+  btns.forEach(function(b) { b.classList.toggle('active', b.dataset.mode === mode) })
+}
+
+function setOverride(mode) {
+  try { localStorage.setItem('theme', mode) } catch(e) {}
+  applyTheme(mode)
+}
+
+function clearOverride() {
+  try { localStorage.removeItem('theme') } catch(e) {}
+  applyTheme(getSystemTheme())
+}
+
+function handleChoice(chosen) {
+  var system = getSystemTheme()
+  if (chosen === system) {
+    clearOverride()
+  } else {
+    setOverride(chosen)
+  }
+}
+
+btns.forEach(function(b) {
+  b.addEventListener('click', function() {
+    if (full) {
+      handleChoice(b.dataset.mode)
+    } else {
+      var current = root.querySelector('.btn.active')
+      var currentMode = current ? current.dataset.mode : getSystemTheme()
+      handleChoice(currentMode === 'dark' ? 'light' : 'dark')
+    }
+  })
+})
+
+var saved
+try { saved = localStorage.getItem('theme') } catch(e) {}
+applyTheme(saved || getSystemTheme())
+
+var mql = window.matchMedia('(prefers-color-scheme: dark)')
+mql.addEventListener('change', onChange)
+function onChange() {
+  try {
+    if (localStorage.getItem('theme')) return
+  } catch(e) { return }
+  applyTheme(getSystemTheme())
+}
+host.ondisconnected = function() { mql.removeEventListener('change', onChange) }
+</script>
+</template>

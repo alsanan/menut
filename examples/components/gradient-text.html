@@ -1,0 +1,29 @@
+<!--
+  @component gradient-text
+  @description Animated gradient text. CSS vars: --gradient-from, --gradient-to. Background-clip text with shifting gradient.
+  @usage <gradient-text style="--gradient-from:#6366f1;--gradient-to:#ec4899">Text</gradient-text>
+  @impl CSS background-clip: text with animated background-position. Keyframes shift gradient left-right.
+-->
+<template shadowrootmode="open">
+<style>
+:host{
+  display:inline;
+  font-size:64px;
+  letter-spacing:-3px;
+}
+span{
+  padding-inline-end:1rem;
+  background:linear-gradient(135deg,var(--gradient-from,#6366f1),var(--gradient-to,#ec4899),var(--gradient-from,#6366f1));
+  background-size:200% 200%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:shift 3s ease-in-out infinite;
+}
+@keyframes shift{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+</style>
+<span><slot></slot></span>
+</template>

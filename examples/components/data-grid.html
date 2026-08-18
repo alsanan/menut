@@ -1,0 +1,151 @@
+<!--
+  @component data-grid
+  @description Lightweight editable data table with CRUD actions: add, duplicate and delete rows.
+  @usage <data-grid value='[{"name":"Ada","role":"dev"}]' key-field="id"></data-grid>
+  @impl Builds a <table> from the array. Cells are inputs when editable. Emits change events.
+-->
+<template shadowrootmode="open" value:array="[]" key-field:string="" editable:boolean="true">
+<style>
+  :host { display: block; }
+  .toolbar { display: flex; gap: .5rem; margin-bottom: .5rem; }
+  .toolbar button {
+    border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+    background: var(--bg-card, oklch(0.97 0.005 90));
+    color: var(--fg, oklch(0.15 0.01 90));
+    border-radius: var(--radius, 0.6rem);
+    padding: .25rem .6rem;
+    font: inherit; font-size: var(--fs-sm, 0.875rem);
+    cursor: pointer;
+  }
+  .toolbar button:hover { border-color: var(--accent, oklch(0.55 0.15 145)); color: var(--accent, oklch(0.55 0.15 145)); }
+  table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm, 0.875rem); }
+  th, td { border: 1px solid var(--hairline, oklch(0.9 0.01 90)); padding: .35rem .5rem; text-align: left; }
+  th { background: color-mix(in oklab, var(--fg-muted, oklch(0.55 0.02 90)) 8%, transparent); font-weight: 600; }
+  td input {
+    width: 100%; border: none; background: transparent; font: inherit; color: inherit;
+  }
+  td input:focus { outline: 1px solid var(--accent, oklch(0.55 0.15 145)); outline-offset: 2px; }
+  td.actions { white-space: nowrap; width: 1%; }
+  td.actions button {
+    border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+    background: var(--bg-card, oklch(0.97 0.005 90));
+    color: var(--fg-muted, oklch(0.55 0.02 90));
+    border-radius: var(--radius, 0.6rem);
+    padding: .15rem .4rem;
+    font: inherit; font-size: .75rem;
+    cursor: pointer;
+  }
+  td.actions button.del:hover { border-color: var(--danger, oklch(0.55 0.2 25)); color: var(--danger, oklch(0.55 0.2 25)); }
+  td.actions button:hover { border-color: var(--accent, oklch(0.55 0.15 145)); color: var(--accent, oklch(0.55 0.15 145)); }
+  .empty { padding: 1rem; color: var(--fg-muted, oklch(0.55 0.02 90)); text-align: center; }
+</style>
+<div class="toolbar" part="toolbar">
+  <button type="button" class="add" part="add">+ Add row</button>
+</div>
+<div id="grid" part="grid"></div>
+
+<script>
+const host = this
+const root = host.el.shadowRoot
+const grid = root.querySelector('#grid')
+const addBtn = root.querySelector('.add')
+function uid() { return 'row_' + Math.random().toString(36).slice(2, 9) }
+function getData() { return Array.isArray(host.value) ? host.value.slice() : [] }
+function commit(data) {
+  host.value = data
+  host.el.dispatchEvent(new CustomEvent('change', { detail: { value: data } }))
+}
+function columns(data) {
+  const keys = new Set()
+  for (const row of data) Object.keys(row).forEach(k => { if (k !== (host.keyField || '')) keys.add(k) })
+  return Array.from(keys)
+}
+function render() {
+  const data = getData()
+  const cols = columns(data)
+  if (data.length === 0) {
+    grid.innerHTML = '<div class="empty">No rows. Click “Add row” to start.</div>'
+    addBtn.style.display = ''
+    return
+  }
+  const table = document.createElement('table')
+  const thead = document.createElement('thead')
+  const thr = document.createElement('tr')
+  for (const c of cols) {
+    const th = document.createElement('th')
+    th.textContent = c
+    thr.appendChild(th)
+  }
+  const actionsTh = document.createElement('th')
+  actionsTh.textContent = 'Actions'
+  thr.appendChild(actionsTh)
+  thead.appendChild(thr)
+  table.appendChild(thead)
+  const tbody = document.createElement('tbody')
+  data.forEach((row, idx) => {
+    const tr = document.createElement('tr')
+    for (const c of cols) {
+      const td = document.createElement('td')
+      if (host.editable) {
+        const input = document.createElement('input')
+        input.value = row[c] == null ? '' : String(row[c])
+        input.addEventListener('change', () => {
+          const d = getData()
+          d[idx][c] = input.value
+          commit(d)
+        })
+        td.appendChild(input)
+      } else {
+        td.textContent = row[c] == null ? '' : String(row[c])
+      }
+      tr.appendChild(td)
+    }
+    const act = document.createElement('td')
+    act.className = 'actions'
+    const dup = document.createElement('button')
+    dup.type = 'button'
+    dup.title = 'Duplicate'
+    dup.textContent = '⎅'
+    dup.addEventListener('click', () => {
+      const d = getData()
+      const copy = JSON.parse(JSON.stringify(d[idx]))
+      if (host.keyField) copy[host.keyField] = uid()
+      d.splice(idx + 1, 0, copy)
+      commit(d)
+      render()
+    })
+    const del = document.createElement('button')
+    del.type = 'button'
+    del.className = 'del'
+    del.title = 'Delete'
+    del.textContent = '✕'
+    del.addEventListener('click', () => {
+      const d = getData()
+      d.splice(idx, 1)
+      commit(d)
+      render()
+    })
+    act.appendChild(dup)
+    act.appendChild(del)
+    tr.appendChild(act)
+    tbody.appendChild(tr)
+  })
+  table.appendChild(tbody)
+  grid.innerHTML = ''
+  grid.appendChild(table)
+}
+addBtn.addEventListener('click', () => {
+  const d = getData()
+  const cols = columns(d)
+  const row = {}
+  if (host.keyField) row[host.keyField] = uid()
+  for (const c of cols) row[c] = ''
+  if (cols.length === 0) row.name = ''
+  d.push(row)
+  commit(d)
+  render()
+})
+host.onpropchange = () => render()
+render()
+</script>
+</template>

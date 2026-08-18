@@ -1,0 +1,63 @@
+<!--
+  @component field-when
+  @description Shows its slotted form fields only when other form fields match the declared conditions. conditions="name=value||name=value"; value "*" matches any non-empty value. Hide-only: hidden fields still submit and validate.
+  @usage <field-when conditions="source=other"><label>Specify<input name="source-other"></label></field-when>
+  @attr conditions – ||-separated name=value pairs; "*" = any non-empty value (reactive)
+  @impl Parses ||-separated pairs, reads live control values (radio/checkbox via checked, else .value), toggles the hidden attribute on the host. One delegated input/change listener on the nearest form (fallback: document); missing referenced fields are skipped. Re-evaluates on prop change and slotchange.
+-->
+<template shadowrootmode="open"
+         conditions:string>
+  <style>
+    :host { display: block; }
+    :host([hidden]) { display: none; }
+  </style>
+  <slot></slot>
+
+<script>
+const host = this
+
+  function parseConditions(str) {
+    return String(str || '')
+      .split('||')
+      .map(pair => {
+        const i = pair.indexOf('=')
+        if (i < 0) return null
+        return { name: pair.slice(0, i).trim(), value: pair.slice(i + 1).trim() }
+      })
+      .filter(Boolean)
+  }
+
+  function currentValue(controls) {
+    for (const el of controls) {
+      if (el.type === 'radio' || el.type === 'checkbox') {
+        if (el.checked) return el.value
+      } else if (el.value !== undefined) {
+        return el.value
+      }
+    }
+    return ''
+  }
+
+  function evaluate() {
+    const conditions = parseConditions(host.conditions)
+    if (!conditions.length) { host.el.removeAttribute('hidden'); return }
+    const root = host.el.closest('form') || document
+    const matched = conditions.some(cond => {
+      const controls = root.querySelectorAll('[name="' + CSS.escape(cond.name) + '"]')
+      if (!controls.length) return false
+      const v = currentValue(controls)
+      return cond.value === '*' ? !!v : v === cond.value
+    })
+    host.el.toggleAttribute('hidden', !matched)
+  }
+
+  host.onpropchange = name => { if (name === 'conditions') evaluate() }
+
+  const listenRoot = host.el.closest('form') || document
+  listenRoot.addEventListener('input', evaluate)
+  listenRoot.addEventListener('change', evaluate)
+  host.el.shadowRoot.querySelector('slot').addEventListener('slotchange', evaluate)
+  evaluate()
+</script>
+</template>
+

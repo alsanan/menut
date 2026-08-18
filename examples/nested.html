@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Menut · :each anidados</title>
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 36rem; margin: 3rem auto; padding: 0 1rem; }
+  .album { border-bottom: 1px solid var(--hairline); padding-bottom: .5rem; margin-bottom: 1rem; }
+  .album ul { margin-bottom: .5rem; }
+  .album small { margin-inline-start: .5rem; }
+</style>
+</head>
+<body>
+  <h1>:each anidados</h1>
+  <p>Un <code>:each</code> dentro de otro. En cada nivel <code>item</code> es el elemento de ese bucle, y <code>item._index</code> su posición.</p>
+
+  <div class="albums">
+    <template :each="albums">
+      <section class="album">
+        <h2><span ::="item._index + 1"></span>. <span ::="item.nombre"></span></h2>
+        <ul>
+          <template :each="item.canciones">
+            <li>
+              <span ::="item._index + 1"></span>. <span ::="item.titulo"></span>
+              <small ::="item.duracion"></small>
+            </li>
+          </template>
+        </ul>
+      </section>
+    </template>
+  </div>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      albums: [
+          { nombre: "Kind of Blue", canciones: [
+              { titulo: "So What", duracion: "9:22" },
+              { titulo: "Freddie Freeloader", duracion: "9:46" }
+          ] },
+          { nombre: "Abbey Road", canciones: [
+              { titulo: "Come Together", duracion: "4:20" },
+              { titulo: "Something", duracion: "3:03" },
+              { titulo: "Here Comes the Sun", duracion: "3:06" }
+          ] }
+      ]
+  };
+
+  _.mount();
+  </script>
+</body>
+</html>

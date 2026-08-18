@@ -1,0 +1,100 @@
+<!--
+  @component x-signature
+  @description Signature pad using signature_pad from CDN. Exports the signature as base64 PNG.
+  @usage <x-signature pen-color="#0f172a" background="#ffffff"></x-signature>
+  @impl Loads signature_pad.umd.min.js. Canvas resizes to host. Clear button included.
+-->
+<template shadowrootmode="open" pen-color:string="#0f172a" background:string="#ffffff" value:string="">
+<style>
+  :host { display: block; }
+  .wrap {
+    border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+    border-radius: var(--radius, 0.6rem);
+    background: var(--bg-card, oklch(0.97 0.005 90));
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 10rem; cursor: crosshair; touch-action: none; }
+  .toolbar {
+    display: flex; gap: .5rem; padding: .5rem; border-top: 1px solid var(--hairline, oklch(0.9 0.01 90));
+  }
+  button {
+    border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+    background: var(--bg-card, oklch(0.97 0.005 90));
+    color: var(--fg, oklch(0.15 0.01 90));
+    border-radius: var(--radius, 0.6rem);
+    padding: .3rem .7rem;
+    font: inherit; font-size: var(--fs-sm, 0.875rem);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent, oklch(0.55 0.15 145)); color: var(--accent, oklch(0.55 0.15 145)); }
+</style>
+<div class="wrap">
+  <canvas part="canvas"></canvas>
+  <div class="toolbar" part="toolbar">
+    <button type="button" class="clear" part="clear">Clear</button>
+    <button type="button" class="save" part="save">Save</button>
+  </div>
+</div>
+
+<script>
+const host = this
+const root = host.el.shadowRoot
+const canvas = root.querySelector('canvas')
+const clearBtn = root.querySelector('.clear')
+const saveBtn = root.querySelector('.save')
+let pad = null
+function loadPad() {
+  if (window.SignaturePad) return Promise.resolve(window.SignaturePad)
+  return new Promise(resolve => {
+    if (document.querySelector('script[data-signature-pad]')) {
+      const check = () => { if (window.SignaturePad) resolve(window.SignaturePad); else setTimeout(check, 30) }
+      check()
+      return
+    }
+    const s = document.createElement('script')
+    s.src = 'https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js'
+    s.dataset.signaturePad = '1'
+    s.onload = () => resolve(window.SignaturePad)
+    s.onerror = () => { canvas.style.cursor = 'not-allowed' }
+    document.head.appendChild(s)
+  })
+}
+function resize() {
+  const rect = host.el.getBoundingClientRect()
+  canvas.width = Math.max(1, rect.width * (window.devicePixelRatio || 1))
+  canvas.height = Math.max(1, 160 * (window.devicePixelRatio || 1))
+}
+async function init() {
+  const SignaturePad = await loadPad()
+  resize()
+  pad = new SignaturePad(canvas, {
+    penColor: host.penColor || '#0f172a',
+    backgroundColor: host.background || '#ffffff'
+  })
+  pad.addEventListener('endStroke', () => {
+    host.value = pad.toDataURL()
+    host.el.dispatchEvent(new CustomEvent('change', { detail: { value: host.value } }))
+  })
+  if (host.value && host.value.startsWith('data:image')) {
+    pad.fromDataURL(host.value)
+  }
+}
+init()
+window.addEventListener('resize', resize, { signal: host.signal })
+clearBtn.addEventListener('click', () => {
+  if (pad) { pad.clear(); host.value = ''; host.el.dispatchEvent(new CustomEvent('change', { detail: { value: '' } })) }
+})
+saveBtn.addEventListener('click', () => {
+  if (pad && !pad.isEmpty()) {
+    const data = pad.toDataURL('image/png')
+    host.value = data
+    host.el.dispatchEvent(new CustomEvent('change', { detail: { value: data } }))
+  }
+})
+host.onpropchange = (name) => {
+  if (!pad) return
+  if (name === 'penColor') pad.penColor = host.penColor || '#0f172a'
+  if (name === 'background') pad.backgroundColor = host.background || '#ffffff'
+}
+</script>
+</template>

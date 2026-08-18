@@ -1,0 +1,49 @@
+<!--
+  @component sound-click
+  @description Plays audio sprite segment on click of wrapped elements. Takes [sound] attribute with segment index (default 0). Segments hardcoded from the shared audio sprite.
+  @usage <sound-click sound="4"><button>click</button></sound-click>
+-->
+<template shadowrootmode="open">
+<style>
+:host { display: inline-block; }
+</style>
+<slot></slot>
+
+<script>
+const SRC = 'https://cdn.jsdelivr.net/gh/snd-lib/snd-lib@v1.2.4/assets/sounds/sprite/01/audioSprite.mp3'
+const SEGMENTS = [
+  [0, 1.5], [2, 2.2], [3.7, 4.189], [4.304, 4.305],
+  [5.8, 6], [7.8, 8.2], [9.9, 10.1], [15.8, 16],
+  [17.9, 18.1], [29.8, 30], [31.8, 32.1], [35.9, 36.1],
+  [39.9, 40.1], [41.9, 42.1], [43.9, 44.1], [45.9, 46.1],
+  [47.9, 48]
+]
+
+if (!window.__sndAudio) {
+  window.__sndAudio = new Audio(SRC)
+  window.__sndAudio.preload = 'auto'
+}
+const audio = window.__sndAudio
+
+function playSegment(idx) {
+  const seg = SEGMENTS[idx]
+  if (!seg) return
+  if (audio._stop) audio.removeEventListener('timeupdate', audio._stop)
+  audio.currentTime = seg[0]
+  audio.play().catch(() => {})
+  audio._stop = () => {
+    if (audio.currentTime >= seg[1]) {
+      audio.pause()
+      audio.removeEventListener('timeupdate', audio._stop)
+      audio._stop = null
+    }
+  }
+  audio.addEventListener('timeupdate', audio._stop)
+}
+
+const host = this
+const idx = parseInt(host.el.getAttribute('sound')) || 0
+host.el.addEventListener('click', () => playSegment(idx))
+</script>
+</template>
+

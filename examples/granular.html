@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Menut · Reactividad granular</title>
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .rama { text-align: center; }
+  .rama output { display: block; font-size: 2.5rem; margin: .5rem 0; font-variant-numeric: tabular-nums; }
+  .mut { font-size: var(--fs-sm); color: var(--fg-muted); }
+  .mut b { color: var(--fg); }
+</style>
+</head>
+<body>
+  <h1>Reactividad granular</h1>
+  <p>Menut solo actualiza los nodos que dependen del dato que cambió. Cada rama cuenta con un <code>MutationObserver</code> las mutaciones DOM de su cuerpo: al tocar una rama, la <strong>otra no se re-renderiza</strong>.</p>
+
+  <div class="grid">
+    <section class="rama">
+      <h2>Rama A</h2>
+      <div id="ramaA">
+        <output ::="contadorA"></output>
+      </div>
+      <button :on.click="incA()">Incrementar A</button>
+      <p class="mut">Mutaciones DOM en A: <b id="mutA">0</b></p>
+    </section>
+    <section class="rama">
+      <h2>Rama B</h2>
+      <div id="ramaB">
+        <output ::="contadorB"></output>
+      </div>
+      <button :on.click="incB()">Incrementar B</button>
+      <p class="mut">Mutaciones DOM en B: <b id="mutB">0</b></p>
+    </section>
+  </div>
+
+  <p><small>Pulsa varias veces un botón: el contador de mutaciones de su rama sube, el de la otra se queda en 0.</small></p>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      contadorA: 0,
+      contadorB: 0,
+
+      incA() { _.contadorA++; },
+      incB() { _.contadorB++; }
+  };
+
+  _.mount();
+
+  // Contar las mutaciones DOM de cada rama. El contador vive FUERA del cuerpo
+  // observado para no re-disparar el observer con su propia escritura.
+  const observa = (idRama, idContador) => {
+      const rama = document.getElementById(idRama);
+      const contador = document.getElementById(idContador);
+      let n = 0;
+      new MutationObserver(() => { contador.textContent = ++n; })
+          .observe(rama, { childList: true, subtree: true, characterData: true, attributes: true });
+  };
+  observa("ramaA", "mutA");
+  observa("ramaB", "mutB");
+  </script>
+</body>
+</html>

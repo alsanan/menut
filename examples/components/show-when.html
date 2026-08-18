@@ -1,0 +1,74 @@
+<!--
+  @component show-when
+  @description Conditionally shows/hides its content based on URL params, hash, media query, CSS support, language, or network status. Uses AND logic by default; add match-any for OR.
+  @usage <show-when has-param="debug">…</show-when>
+  @attrs
+    has-param   - URL query parameter. "name" checks existence, "name=value" checks exact match.
+    has-hash    - URL hash segment (without #). Shown when location.hash matches.
+    has-media   - Any valid media query. Re-evaluates on viewport changes.
+    has-support - CSS.supports() condition. E.g. "display: grid", "(color: oklch(0 0 0))".
+    has-lang    - Browser language code from navigator.languages. E.g. "es", "en-US".
+    has-network - "online" or "offline". Listens to online/offline window events.
+    match-any   - Boolean attribute. When present, conditions are OR'd instead of AND'd.
+  @impl MutationObserver watches attribute changes. Listens to hashchange, popstate, media change, and online/offline events. Unspecified conditions are ignored (treated as passed).
+-->
+<template shadowrootmode="open">
+  <style>
+    :host([hidden]) { display: none; }
+  </style>
+  <slot></slot>
+
+<script>
+const host = this
+const ATTRS = ['has-param','has-hash','has-lang','has-media','has-support','has-network','match-any']
+
+function g(n) { return host.el.getAttribute(n) }
+function h(n) { return host.el.hasAttribute(n) }
+
+function checkParam() {
+  const v = g('has-param'); if (!v) return
+  const p = new URLSearchParams(location.search)
+  return v.includes('=') ? p.has(...v.split('=')) : p.has(v)
+}
+function checkHash() {
+  const v = g('has-hash'); if (!v) return
+  return location.hash === '#'+v
+}
+function checkMedia() {
+  const v = g('has-media'); if (!v) return
+  return window.matchMedia(v).matches
+}
+function checkSupport() {
+  const v = g('has-support'); if (!v) return
+  return CSS.supports(v)
+}
+function checkLang() {
+  const v = g('has-lang'); if (!v) return
+  return navigator.languages.includes(v)
+}
+function checkNetwork() {
+  const v = g('has-network'); if (!v) return
+  if (v === 'online') return navigator.onLine
+  if (v === 'offline') return !navigator.onLine
+}
+function matchConditions() {
+  const r = [checkParam(), checkHash(), checkMedia(), checkSupport(), checkLang(), checkNetwork()]
+  return h('match-any') ? r.some(x => x) : r.every(x => x || x === undefined)
+}
+function showHide() { host.el.toggleAttribute('hidden', !matchConditions()) }
+
+host.showHide = showHide
+
+new MutationObserver(showHide).observe(host.el, { attributes: true, attributeFilter: ATTRS })
+showHide()
+window.addEventListener('hashchange', showHide, { signal: host.signal })
+window.addEventListener('popstate', showHide, { signal: host.signal })
+const mq = g('has-media')
+if (mq) window.matchMedia(mq).addEventListener('change', showHide, { signal: host.signal })
+if (h('has-network')) {
+  window.addEventListener('online', showHide, { signal: host.signal })
+  window.addEventListener('offline', showHide, { signal: host.signal })
+}
+</script>
+</template>
+

@@ -1,0 +1,66 @@
+<!--
+  @component x-markdown
+  @description Render Markdown to HTML using marked.js loaded from CDN. Content can come from the slot/textContent or from a `src` URL.
+  @usage <x-markdown># Hello\n\n- one\n- two</x-markdown> · <x-markdown src="article.md"></x-markdown>
+  @impl Loads marked.js asynchronously. No sanitization is applied: only use with trusted input.
+-->
+<template shadowrootmode="open" src:string="">
+<style>
+  :host { display: block; line-height: 1.6; }
+  :host > div { max-width: 100%; }
+  :host h1, :host h2, :host h3 { margin: 1.25rem 0 .5rem; }
+  :host p { margin: .5rem 0; }
+  :host code { font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); background: color-mix(in oklab, var(--fg-muted, oklch(0.55 0.02 90)) 10%, transparent); padding: .05rem .3rem; border-radius: .25rem; }
+  :host pre { background: color-mix(in oklab, var(--fg-muted, oklch(0.55 0.02 90)) 8%, transparent); padding: .75rem; border-radius: var(--radius, 0.6rem); overflow-x: auto; }
+  :host pre code { background: transparent; padding: 0; }
+  :host ul, :host ol { padding-left: 1.5rem; }
+  :host blockquote { border-left: 3px solid var(--hairline, oklch(0.9 0.01 90)); padding-left: .75rem; margin-left: 0; color: var(--fg-muted, oklch(0.55 0.02 90)); }
+  :host a { color: var(--accent, oklch(0.55 0.15 145)); }
+  :host table { border-collapse: collapse; width: 100%; }
+  :host th, :host td { border: 1px solid var(--hairline, oklch(0.9 0.01 90)); padding: .35rem .5rem; }
+</style>
+<div id="out" part="out"></div>
+
+<script>
+const host = this
+const out = host.el.shadowRoot.querySelector('#out')
+function loadMarked() {
+  if (window.marked) return Promise.resolve(window.marked)
+  return new Promise(resolve => {
+    if (document.querySelector('script[data-marked]')) {
+      const check = () => { if (window.marked) resolve(window.marked); else setTimeout(check, 30) }
+      check()
+      return
+    }
+    const s = document.createElement('script')
+    s.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js'
+    s.dataset.marked = '1'
+    s.onload = () => resolve(window.marked)
+    s.onerror = () => { out.textContent = 'Error loading markdown renderer.' }
+    document.head.appendChild(s)
+  })
+}
+async function render() {
+  const marked = await loadMarked()
+  const src = host.el.getAttribute('src')
+  let text
+  if (src) {
+    try {
+      const r = await fetch(src)
+      text = await r.text()
+    } catch (e) {
+      out.textContent = 'Error loading markdown: ' + e.message
+      return
+    }
+  } else {
+    text = host.el.textContent
+  }
+  out.innerHTML = marked.parse(text || '')
+}
+render()
+host.onpropchange = () => render()
+host.el._observer = new MutationObserver(() => render())
+host.el._observer.observe(host.el, { childList: true, subtree: true })
+host._cleanup = () => host.el._observer.disconnect()
+</script>
+</template>

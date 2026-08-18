@@ -1,0 +1,110 @@
+<!--
+  @component live-reload
+  @description Auto-reloads the page when the main page file changes. Checks via HEAD request with adaptive interval and visibility-aware pausing. When watch-css/watch-scripts attributes present, also monitors those resources on a separate longer interval. Uses PerformanceObserver to catch dynamically loaded resources.
+  @usage <live-reload watch-css></live-reload>
+  @impl Main URL checked via HEAD with exponential backoff 1s→10s, pauses when tab hidden, immediate check+reset on return. Watched CSS/JS resources checked on a separate 30s interval.
+--><template shadowrootmode="open"><style>:host{display:none}</style>
+<script>
+const host = this
+const resourceStates = new Map()
+const watching = new Set()
+let mainChangeCount = 0
+let mainTimer = null
+let watchTimer = null
+const WATCH_INTERVAL = 30000
+
+function getUrl() {
+  const src = host.el.getAttribute('src') || location.href
+  try { return new URL(src, location.href) } catch { return null }
+}
+
+function addToWatching(urlString) {
+  try {
+    const u = new URL(urlString, location.href)
+    if (u.origin === location.origin) watching.add(u.href)
+  } catch {}
+}
+
+function checkWatched() {
+  if (document.hidden || !watching.size) return
+  for (const href of watching) {
+    if (resourceStates.has(href)) continue
+    fetch(href, { method: 'HEAD', cache: 'no-cache' }).then(res => {
+      if (!res.ok) return
+      resourceStates.set(href, {
+        lastModified: res.headers.get('Last-Modified'),
+        etag: res.headers.get('ETag')
+      })
+    }).catch(() => {})
+  }
+}
+
+function checkWatchedLoop() {
+  checkWatched()
+  watchTimer = setTimeout(checkWatchedLoop, WATCH_INTERVAL)
+}
+
+async function check() {
+  if (document.hidden) return
+
+  const url = getUrl()
+  if (!url) return scheduleMain()
+
+  try {
+    const res = await fetch(url.href, { method: 'HEAD', cache: 'no-cache' })
+    if (!res.ok) return scheduleMain()
+    const newLM = res.headers.get('Last-Modified')
+    const newET = res.headers.get('ETag')
+    const prev = resourceStates.get(url.href)
+    if (prev && (prev.lastModified !== newLM || prev.etag !== newET)) {
+      location.reload()
+      return
+    }
+    resourceStates.set(url.href, { lastModified: newLM, etag: newET })
+  } catch {}
+
+  mainChangeCount++
+  scheduleMain()
+}
+
+function scheduleMain() {
+  const delay = Math.min(1000 * Math.pow(2, mainChangeCount), 10000)
+  mainTimer = setTimeout(check, delay)
+}
+
+if (host.el.hasAttribute('watch-css')) {
+  document.querySelectorAll('link[rel="stylesheet"]').forEach(el => {
+    addToWatching(el.href)
+  })
+}
+
+if (host.el.hasAttribute('watch-scripts')) {
+  document.querySelectorAll('script[src]').forEach(el => {
+    addToWatching(el.src)
+  })
+}
+
+new PerformanceObserver(list => {
+  for (const entry of list.getEntries()) {
+    addToWatching(entry.name)
+  }
+}).observe({ type: 'resource', buffered: true })
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearTimeout(mainTimer)
+    clearTimeout(watchTimer)
+  } else {
+    clearTimeout(mainTimer)
+    clearTimeout(watchTimer)
+    mainChangeCount = 0
+    check()
+    checkWatchedLoop()
+  }
+})
+
+check()
+checkWatchedLoop()
+</script>
+</template>
+

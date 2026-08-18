@@ -1,0 +1,62 @@
+<!--
+  @component preload-links
+  @description Preloads linked pages when hovering or focusing links inside it. Cached responses can be served instantly on click.
+  @usage <preload-links on="hover" intercept><a href="/page">Page</a></preload-links>
+  @impl Uses a global cache (window.__preloadCache). Triggers preload on the configured event. If `intercept` is set, clicks use the cached response.
+-->
+<template on:string="hover" intercept:boolean="false">
+<script>
+const host = this
+const trigger = host.on || 'hover'
+const intercept = host.intercept
+
+const cache = window.__preloadCache || (window.__preloadCache = new Map())
+
+function preload(url) {
+  if (cache.has(url)) return
+  cache.set(url, null)
+  fetch(url, { credentials: 'same-origin' })
+    .then(r => r.ok ? r.text() : null)
+    .then(html => cache.set(url, html))
+    .catch(() => cache.delete(url))
+}
+
+function isSameOrigin(url) {
+  try {
+    const u = new URL(url, location.href)
+    return u.origin === location.origin && !u.protocol.startsWith('javascript')
+  } catch { return false }
+}
+
+function getEventName() {
+  switch (trigger) {
+    case 'focus': return 'focusin'
+    case 'pointerdown': return 'pointerdown'
+    case 'hover':
+    default: return 'mouseenter'
+  }
+}
+
+function handleTrigger(e) {
+  const a = e.target.closest('a[href]')
+  if (!a || !host.el.contains(a)) return
+  if (a.href && !a.href.startsWith('javascript:')) preload(a.href)
+}
+
+function handleClick(e) {
+  if (!intercept) return
+  const a = e.target.closest('a[href]')
+  if (!a || !host.el.contains(a)) return
+  const cached = cache.get(a.href)
+  if (cached == null) return
+  e.preventDefault()
+  document.open()
+  document.write(cached)
+  document.close()
+}
+
+const eventName = trigger === 'focus' ? 'focusin' : trigger === 'pointerdown' ? 'pointerdown' : 'mouseover'
+host.el.addEventListener(eventName, handleTrigger, { signal: host.signal })
+host.el.addEventListener('click', handleClick, { signal: host.signal })
+</script>
+</template>

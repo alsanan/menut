@@ -1,0 +1,231 @@
+<!--
+  @component step-form
+  @description Wizard/form stepper. Slotted .step divs shown one at a time with a vertical slide. Dot navigation, Continue/Done fill button, Enter advances. The host auto-sizes to the active step (no clipping). Attribute: only-mobile (desktop shows inline).
+  @usage <step-form><div class="step">Step 1</div><div class="step">Step 2</div></step-form>
+  @impl Light DOM .step children moved into the shadow form. Active step centered via translate; host height measured to the active step (+ padding), animating on change. Native form submit is prevented; Enter advances except when focused in a textarea/select/button. The fill button reads "Continue" and becomes "Done!" on the last step, dispatching a bubbling submit event. Dots built programmatically; listeners use the loader signal and are cleaned on disconnect. CSS media query switches only-mobile to inline on desktop.
+-->
+<template shadowrootmode="open">
+  <style>
+    :host {
+      display: block;
+      position: relative;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 220px;
+      overflow: hidden;
+      padding-block-start: 1rem;
+      padding-block-end: 4rem; /* room for the fill bar */
+      transition: height 0.45s cubic-bezier(0.4, 0.25, 0.8, 0.3);
+    }
+    form {
+      width: 100%;
+    }
+
+    /* ---- wizard mode: one centered step at a time ---- */
+    .step {
+      position: absolute;
+      top: 50%;
+      inset-inline-start: 50%;
+      width: 70%;
+      max-width: calc(100% - 2.5rem);
+      box-sizing: border-box;
+      transform: translate(-50%, -300%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.45s cubic-bezier(0.4, 0.25, 0.8, 0.3), opacity 0.45s ease;
+    }
+    .step.active {
+      transform: translate(-50%, -50%);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ---- only-mobile: desktop shows all steps inline ---- */
+    @media (min-width: 768px) {
+      :host([only-mobile]) {
+        overflow: visible;
+        min-height: 0;
+        padding-block-end: 0;
+        transition: none;
+      }
+      :host([only-mobile]) .step {
+        position: static;
+        transform: none;
+        opacity: 1;
+        pointer-events: auto;
+        width: 100%;
+        max-width: none;
+        margin-bottom: 1.5rem;
+      }
+      :host([only-mobile]) .dots,
+      :host([only-mobile]) .fill {
+        display: none;
+      }
+    }
+
+    /* ---- dots ---- */
+    .dots {
+      position: absolute;
+      inset-inline-end: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .dot {
+      display: block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 0;
+      padding: 0;
+      background: var(--hairline, #aaa);
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .dot.active,
+    .dot:hover {
+      background: #f9214a;
+    }
+
+    /* ---- fill button ---- */
+    .fill {
+      position: absolute;
+      bottom: 0.5rem;
+      inset-inline-start: 50%;
+      transform: translateX(-50%);
+      width: 70%;
+      max-width: calc(100% - 2.5rem);
+      text-align: center;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: #f9214a;
+      color: rgb(255 255 255 / 0.9);
+      font: inherit;
+      font-size: 1.125rem;
+      letter-spacing: 0.0625rem;
+      line-height: 3rem;
+      cursor: pointer;
+      box-shadow: 0 3px 5px 1px rgb(0 0 0 / 0.25);
+      text-shadow: 0 -2px 0 rgb(0 0 0 / 0.25), 0 1px 0 rgb(255 255 255 / 0.2);
+      transition: opacity 0.15s;
+    }
+    .fill.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ---- inputs / labels ---- */
+    input {
+      width: 100%;
+      padding: 0.25rem 0;
+      border: 0;
+      border-bottom: 1px solid #f9214a;
+      border-radius: 0;
+      outline: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 2rem;
+      line-height: 3rem;
+      letter-spacing: 0.125rem;
+      box-sizing: border-box;
+    }
+    input::selection {
+      background: rgb(249 33 74 / 0.25);
+    }
+    label {
+      display: block;
+      color: var(--fg-muted, #aaa);
+      margin-top: 0.5rem;
+      font-size: 1rem;
+    }
+  </style>
+  <form>
+    <div class="dots"></div>
+    <button class="fill" type="button">Continue</button>
+  </form>
+
+<script>
+const host = this
+  const root = host.el.shadowRoot
+  const form = root.querySelector('form')
+  const dotsEl = root.querySelector('.dots')
+  const fillEl = root.querySelector('.fill')
+
+  while (host.el.firstChild) form.appendChild(host.el.firstChild)
+
+  const steps = [...form.querySelectorAll('.step')]
+  let current = 0
+
+  const isWizard = () => !host.el.hasAttribute('only-mobile') || window.innerWidth < 768
+
+  function measure() {
+    const cs = getComputedStyle(host.el)
+    const padY = parseFloat(cs.paddingTop || 0) + parseFloat(cs.paddingBottom || 0)
+    const el = steps[current]
+    host.el.style.height = (el ? el.offsetHeight + padY : '') + 'px'
+  }
+
+  function show(index, opts = {}) {
+    if (index < 0 || index >= steps.length) return
+    steps.forEach(s => s.classList.remove('active'))
+    current = index
+    steps[current].classList.add('active')
+    dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current))
+    fillEl.classList.remove('hidden')
+    fillEl.textContent = current === steps.length - 1 ? 'Done!' : 'Continue'
+    requestAnimationFrame(measure)
+    if (opts.focus !== false) {
+      const input = steps[current].querySelector('input')
+      if (input && document.activeElement !== input) input.focus()
+    }
+  }
+
+  function submitForm() {
+    host.el.dispatchEvent(new CustomEvent('submit', { bubbles: true, composed: true }))
+  }
+
+  function sync() {
+    if (isWizard()) {
+      host.el.style.height = ''
+      show(current, { focus: false })
+    } else {
+      host.el.style.height = ''
+      steps.forEach(s => s.classList.add('active'))
+      fillEl.classList.add('hidden')
+    }
+  }
+
+  form.addEventListener('submit', e => e.preventDefault(), { signal: host.signal })
+
+  form.addEventListener('keydown', e => {
+    if (!isWizard() || e.key !== 'Enter') return
+    const t = e.target
+    if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.closest('button'))) return
+    e.preventDefault()
+    if (current === steps.length - 1) submitForm()
+    else show(current + 1)
+  }, { signal: host.signal })
+
+  fillEl.addEventListener('click', () => {
+    if (current === steps.length - 1) submitForm()
+    else show(current + 1)
+  }, { signal: host.signal })
+
+  steps.forEach((s, i) => {
+    const dot = document.createElement('button')
+    dot.className = 'dot'
+    dot.type = 'button'
+    dot.setAttribute('aria-label', 'Step ' + (i + 1))
+    dot.addEventListener('click', () => show(i), { signal: host.signal })
+    dotsEl.appendChild(dot)
+  })
+
+  window.addEventListener('resize', sync, { signal: host.signal })
+
+  sync()
+</script>
+</template>
+

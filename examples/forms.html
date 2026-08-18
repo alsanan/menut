@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menut · Formularios</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 32rem; margin: 3rem auto; padding: 0 1rem; }
+  label { margin: .4rem 0; }
+  output { display: block; white-space: pre-wrap; background: var(--bg-card); border: var(--border); padding: .6rem; border-radius: var(--radius); }
+</style>
+</head>
+<body>
+  <h1>Formularios</h1>
+
+  <fieldset>
+    <legend>Datos</legend>
+    <label>Nombre
+      <input type="text" :model="form.nombre">
+    </label>
+    <label>Email
+      <input type="text" :model="form.email">
+    </label>
+    <label>País
+      <select :model="form.pais">
+        <option value="es">España</option>
+        <option value="fr">Francia</option>
+        <option value="it">Italia</option>
+      </select>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Preferencias</legend>
+    <label>
+      <input type="checkbox" :model="form.boletin"> Quiero recibir el boletín
+    </label>
+    <label>
+      <input type="radio" name="plan" value="basico" :model="form.plan"> Plan básico
+    </label>
+    <label>
+      <input type="radio" name="plan" value="pro" :model="form.plan"> Plan pro
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Comentarios</legend>
+    <textarea rows="3" :model="form.comentario"></textarea>
+  </fieldset>
+
+  <h2>Vista previa</h2>
+  <output>
+Nombre:  <span ::="form.nombre"></span>
+Email:   <span ::="form.email"></span>
+País:    <span ::="form.pais"></span>
+Boletín: <span ::="form.boletin ? 'sí' : 'no'"></span>
+Plan:    <span ::="form.plan"></span>
+Comentario: <span ::="form.comentario"></span>
+  </output>
+
+  <p><button :on.click="enviar(event)">Enviar</button></p>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      form: {
+          nombre: "",
+          email: "",
+          pais: "es",
+          boletin: true,
+          plan: "basico",
+          comentario: ""
+      },
+
+      enviar(event) {
+          event.preventDefault();
+          console.log("Enviando:", _.form);
+      }
+  };
+
+  _.mount();
+  </script>
+</body>
+</html>

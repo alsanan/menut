@@ -1,0 +1,252 @@
+<!--
+  @component mini-calendar
+  @description Small calendar with month or week view, previous/next navigation, today highlight and single-date selection.
+  @usage <mini-calendar value="2026-08-14" month="2026-08" week lang="en"></mini-calendar>
+  @impl Pure JS calendar grid. `week` attribute shows a single week view (default is month). Emits a `change` CustomEvent with the selected ISO date when a day is clicked.
+-->
+<template shadowrootmode="open" value:string="" month:string="" week:boolean="false" lang:string="en">
+<style>
+  :host { display: inline-block; }
+  .wrap { font-family: inherit; background: var(--bg-card, oklch(0.97 0.005 90)); border: 1px solid var(--hairline, oklch(0.9 0.01 90)); border-radius: var(--radius-card, 0.75rem); padding: .75rem; width: min-content; }
+  .header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+  .month-year { font-weight: 600; font-size: .95rem; }
+  button.nav { width: 1.75rem; height: 1.75rem; border-radius: var(--radius, 0.4rem); border: 1px solid var(--hairline, oklch(0.9 0.01 90)); background: transparent; cursor: pointer; color: var(--fg, oklch(0.15 0.01 90)); }
+  button.nav:hover { border-color: var(--accent, oklch(0.55 0.15 145)); color: var(--accent, oklch(0.55 0.15 145)); }
+  table { border-collapse: collapse; font-size: .8rem; }
+  th { font-weight: 500; color: var(--fg-muted, oklch(0.55 0.02 90)); padding: .3rem; text-align: center; }
+  td { padding: .15rem; text-align: center; }
+  td button, td span.pad {
+    width: 2rem; height: 2rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; border: 1px solid transparent;
+    background: transparent; color: var(--fg, oklch(0.15 0.01 90));
+    cursor: pointer; font: inherit;
+  }
+  td span.pad { color: var(--fg-muted, oklch(0.55 0.02 90)); cursor: default; }
+  td button:hover:not([selected]) { background: var(--hairline, oklch(0.9 0.01 90)); }
+  td button[today] { border-color: var(--accent, oklch(0.55 0.15 145)); color: var(--accent, oklch(0.55 0.15 145)); }
+  td button[selected] { background: var(--accent, oklch(0.55 0.15 145)); color: #fff; }
+</style>
+<div class="wrap">
+  <div class="header">
+    <button type="button" class="nav" part="prev" aria-label="Previous">&#8249;</button>
+    <span class="month-year" part="title"></span>
+    <button type="button" class="nav" part="next" aria-label="Next">&#8250;</button>
+  </div>
+  <table part="grid">
+    <thead><tr></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const host = this
+const root = host.el.shadowRoot
+const title = root.querySelector('.month-year')
+const prevBtn = root.querySelector('[part="prev"]')
+const nextBtn = root.querySelector('[part="next"]')
+const theadRow = root.querySelector('thead tr')
+const tbody = root.querySelector('tbody')
+
+const fmtMonth = new Intl.DateTimeFormat(host.lang || 'en', { month: 'long', year: 'numeric' })
+const fmtDate = new Intl.DateTimeFormat(host.lang || 'en', { month: 'short', day: 'numeric' })
+const fmtDay = new Intl.DateTimeFormat(host.lang || 'en', { weekday: 'narrow' })
+
+function parseMonth(s) {
+  const now = new Date()
+  if (!s) return { year: now.getFullYear(), month: now.getMonth() }
+  const [y, m] = s.split('-').map(Number)
+  return { year: y || now.getFullYear(), month: Math.max(0, Math.min(11, (m || 1) - 1)) }
+}
+
+function iso(d) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function sameDate(a, b) {
+  return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+function getFirstDayOfWeek() {
+  const lang = host.lang || 'en'
+  try {
+    const locale = new Intl.Locale(lang)
+    if (locale.getWeekInfo) {
+      return locale.getWeekInfo().firstDay || 0
+    }
+  } catch (e) {}
+  const mondayLocales = ['es', 'fr', 'de', 'it', 'pt', 'nl', 'ru', 'pl', 'cs', 'sk', 'hu', 'ro', 'bg', 'hr', 'sl', 'sr', 'uk', 'el', 'tr', 'ar', 'he', 'fa', 'hi', 'bn', 'ta', 'te', 'mr', 'gu', 'kn', 'ml', 'pa', 'th', 'vi', 'id', 'ms', 'fil', 'sv', 'no', 'da', 'fi', 'is']
+  const langBase = lang.split('-')[0].toLowerCase()
+  return mondayLocales.includes(langBase) ? 1 : 0
+}
+
+function startOfWeek(d) {
+  const s = new Date(d)
+  s.setHours(0, 0, 0, 0)
+  const day = s.getDay()
+  const firstDay = getFirstDayOfWeek()
+  const diff = (day - firstDay + 7) % 7
+  s.setDate(s.getDate() - diff)
+  return s
+}
+
+function referenceDate() {
+  if (host.value) return new Date(host.value + 'T00:00:00')
+  if (host.month) {
+    const { year, month } = parseMonth(host.month)
+    return new Date(year, month, 1)
+  }
+  return new Date()
+}
+
+let weekStart = startOfWeek(referenceDate())
+
+function renderHeader() {
+  theadRow.innerHTML = ''
+  const firstDay = getFirstDayOfWeek()
+  const base = new Date(2024, 0, 7) // Sunday (Jan 7, 2024)
+  const offset = (firstDay + 7) % 7
+  base.setDate(base.getDate() + offset)
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    const th = document.createElement('th')
+    th.textContent = fmtDay.format(d)
+    theadRow.appendChild(th)
+  }
+}
+
+function renderMonth() {
+  const { year, month } = parseMonth(host.month)
+  const firstDay = getFirstDayOfWeek()
+  const monthFirstDay = new Date(year, month, 1).getDay()
+  const total = daysInMonth(year, month)
+  const prevTotal = daysInMonth(year, month - 1)
+  const selected = host.value ? new Date(host.value + 'T00:00:00') : null
+  const now = new Date()
+
+  title.textContent = fmtMonth.format(new Date(year, month, 1))
+  tbody.innerHTML = ''
+
+  let row = document.createElement('tr')
+  let cellCount = 0
+
+  const daysBefore = (monthFirstDay - firstDay + 7) % 7
+  for (let i = daysBefore - 1; i >= 0; i--) {
+    const day = prevTotal - i
+    const td = document.createElement('td')
+    const span = document.createElement('span')
+    span.className = 'pad'
+    span.textContent = day
+    td.appendChild(span)
+    row.appendChild(td)
+    cellCount++
+  }
+
+  for (let day = 1; day <= total; day++) {
+    const date = new Date(year, month, day)
+    const td = document.createElement('td')
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.textContent = day
+    if (sameDate(date, selected)) btn.setAttribute('selected', '')
+    if (sameDate(date, now)) btn.setAttribute('today', '')
+    btn.addEventListener('click', () => {
+      host.value = iso(date)
+      host.el.dispatchEvent(new CustomEvent('change', { detail: { value: host.value, date } }))
+      render()
+    })
+    td.appendChild(btn)
+    row.appendChild(td)
+    cellCount++
+    if (cellCount % 7 === 0) {
+      tbody.appendChild(row)
+      row = document.createElement('tr')
+    }
+  }
+
+  const remaining = (7 - (cellCount % 7)) % 7
+  for (let day = 1; day <= remaining; day++) {
+    const td = document.createElement('td')
+    const span = document.createElement('span')
+    span.className = 'pad'
+    span.textContent = day
+    td.appendChild(span)
+    row.appendChild(td)
+    cellCount++
+  }
+  if (row.children.length) tbody.appendChild(row)
+}
+
+function renderWeek() {
+  const selected = host.value ? new Date(host.value + 'T00:00:00') : null
+  const now = new Date()
+  const end = new Date(weekStart)
+  end.setDate(weekStart.getDate() + 6)
+
+  const startYear = weekStart.getFullYear()
+  const endYear = end.getFullYear()
+  title.textContent = startYear === endYear
+    ? `${fmtDate.format(weekStart)} – ${fmtDate.format(end)}`
+    : `${fmtDate.format(weekStart)}, ${startYear} – ${fmtDate.format(end)}, ${endYear}`
+
+  tbody.innerHTML = ''
+  const row = document.createElement('tr')
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart)
+    date.setDate(weekStart.getDate() + i)
+    const td = document.createElement('td')
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.textContent = date.getDate()
+    if (sameDate(date, selected)) btn.setAttribute('selected', '')
+    if (sameDate(date, now)) btn.setAttribute('today', '')
+    btn.addEventListener('click', () => {
+      host.value = iso(date)
+      host.el.dispatchEvent(new CustomEvent('change', { detail: { value: host.value, date } }))
+      render()
+    })
+    td.appendChild(btn)
+    row.appendChild(td)
+  }
+  tbody.appendChild(row)
+}
+
+function render() {
+  if (host.week) renderWeek()
+  else renderMonth()
+}
+
+function navigate(delta) {
+  if (host.week) {
+    weekStart.setDate(weekStart.getDate() + delta * 7)
+    render()
+  } else {
+    const { year, month } = parseMonth(host.month)
+    const d = new Date(year, month + delta, 1)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    host.month = `${y}-${m}`
+    render()
+  }
+}
+
+prevBtn.addEventListener('click', () => navigate(-1))
+nextBtn.addEventListener('click', () => navigate(1))
+host.onpropchange = (name) => {
+  if (name === 'value' || name === 'month' || name === 'week' || name === 'lang') {
+    if (name === 'week') weekStart = startOfWeek(referenceDate())
+    render()
+  }
+}
+renderHeader()
+render()
+</script>
+</template>

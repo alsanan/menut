@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Menut · El foco se conserva</title>
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 32rem; margin: 3rem auto; padding: 0 1rem; }
+  ul { list-style: none; padding: 0; }
+  li { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; border-radius: var(--radius); }
+  li:focus-within { background: var(--bg-card); }
+  li input { flex: 1; }
+  #estado { color: var(--fg-muted); }
+</style>
+</head>
+<body>
+  <h1>El foco no se pierde al añadir</h1>
+
+  <p>Al hacer clic en un botón, el navegador le da el foco al propio botón: <strong>eso no tiene que ver con Menut</strong>. Para aislar la prueba, tanto <em>Añadir fila</em> como <em>Eliminar</em> retrasan la acción <strong>2 segundos</strong> con un <code>setTimeout</code> (y deshabilitan los botones mientras esperan):</p>
+  <ol>
+    <li>Haz clic en un campo y escribe algo.</li>
+    <li>Pulsa <strong>Añadir fila</strong> o <strong>Eliminar</strong> (el botón se queda con el foco, es normal).</li>
+    <li>Antes de que pasen los 2 s, vuelve a hacer clic en tu campo.</li>
+    <li>Cuando la fila se añada o se elimine, tu campo <em>debe seguir enfocado</em> con el texto intacto: Menut reutiliza las filas existentes y solo toca las que cambian.</li>
+  </ol>
+
+  <p>Foco actual: <b id="foco">ninguno</b></p>
+  <p id="estado" ::="estado"></p>
+
+  <ul>
+    <template :each="filas">
+      <li>
+        <input :model="item.texto" placeholder="Escribe aquí…">
+        <button size="sm" :on.click="eliminar(item._index)" :disabled="esperando">Eliminar</button>
+      </li>
+    </template>
+  </ul>
+
+  <button :on.click="anadir()" :disabled="esperando">Añadir fila</button>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      filas: [{ texto: "" }, { texto: "" }],
+      esperando: false,
+      estado: "",
+
+      anadir() {
+          if (_.esperando) return;
+          _.esperando = true;
+          _.estado = "La fila se añadirá en 2 s… vuelve a hacer clic en tu campo.";
+          setTimeout(() => {
+              _.filas.push({ texto: "" });
+              _.esperando = false;
+              _.estado = "Fila añadida. Tu campo debería seguir enfocado y con tu texto.";
+          }, 2000);
+      },
+
+      eliminar(i) {
+          if (_.esperando) return;
+          _.esperando = true;
+          _.estado = "La fila se eliminará en 2 s… vuelve a hacer clic en tu campo.";
+          setTimeout(() => {
+              _.filas.splice(i, 1);
+              _.esperando = false;
+              _.estado = "Fila eliminada. Tu campo debería seguir enfocado y con tu texto.";
+          }, 2000);
+      }
+  };
+
+  _.mount();
+
+  // Indicador de foco (lógica de la página, no de Menut).
+  document.addEventListener("focusin", (event) => {
+      const input = event.target.closest("li input");
+      if (!input) return;
+      const fila = [...document.querySelectorAll("li input")].indexOf(input);
+      document.getElementById("foco").textContent = "fila " + (fila + 1);
+  });
+  document.addEventListener("focusout", (event) => {
+      if (event.target.closest("li input")) {
+          document.getElementById("foco").textContent = "ninguno";
+      }
+  });
+  </script>
+</body>
+</html>

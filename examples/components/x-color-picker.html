@@ -1,0 +1,78 @@
+<!--
+  @component x-color-picker
+  @description Color swatch picker. Slotted <span style="background:COLOR"> swatches. Click to select, shows preview & hex.
+  @usage <x-color-picker><span style="background:#f00"></span><span style="background:#00f"></span></x-color-picker>
+  @impl Script reads background from slotted swatches (querySelectorAll from host), updates preview, setFormValue, dispatches change. Supports value attribute for initial selection.
+-->
+<template shadowrootmode="open">
+  <style>
+    :host {
+      display: block;
+      font: 400 var(--fs-body, 16px)/1.4 inherit;
+    }
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2, 8px);
+      margin-bottom: var(--space-3, 16px);
+    }
+    .swatches ::slotted(*) {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+    }
+    .swatches ::slotted(*):hover { transform: scale(1.15); }
+    .swatches ::slotted(*[active]) { outline-color: var(--fg, oklch(0.15 0.01 90)); }
+    .preview {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3, 16px);
+    }
+    .current {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: var(--radius-card, 16px);
+      border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+      flex-shrink: 0;
+    }
+    .value {
+      font: 500 var(--fs-sm, 14px)/1.4 monospace;
+      color: var(--fg-muted, oklch(0.55 0.02 90));
+    }
+  </style>
+  <div class="swatches">
+    <slot></slot>
+  </div>
+  <div class="preview">
+    <div class="current"></div>
+    <span class="value"></span>
+  </div>
+
+<script>
+const root = this.el.shadowRoot
+  const host = this
+  const current = root.querySelector('.current')
+  const value = root.querySelector('.value')
+  function getSwatches() { return host.el.querySelectorAll('[style*="background"]') }
+  function pick(swatch) {
+    const color = swatch.getAttribute('value') || swatch.style.background
+    current.style.background = color
+    value.textContent = color
+    getSwatches().forEach(s => s.removeAttribute('active'))
+    swatch.setAttribute('active', '')
+    host.el._internals.setFormValue(color)
+    host.el.dispatchEvent(new CustomEvent('change', { detail: { value: color } }))
+  }
+  getSwatches().forEach(s => s.addEventListener('click', () => pick(s)))
+  const initVal = host.el.getAttribute('value')
+  const swatches = getSwatches()
+  const initSwatch = initVal ? [...swatches].find(s => (s.getAttribute('value') || s.style.background) === initVal) : null
+  if (initSwatch) pick(initSwatch); else if (swatches.length) pick(swatches[0])
+</script>
+</template>
+

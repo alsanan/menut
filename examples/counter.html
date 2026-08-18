@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menut · Contador</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 32rem; margin: 3rem auto; padding: 0 1rem; }
+  output { display: block; font-size: 4rem; text-align: center; margin: 1rem 0; font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: .5rem; justify-content: center; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+  <h1>Contador</h1>
+
+  <output ::="contador"></output>
+
+  <div class="row">
+    <button :on.click="restar()">−</button>
+    <button :on.click="incrementar()">+</button>
+    <button :on.click="resetear()">Reset</button>
+  </div>
+
+  <p :hidden="contador !== 10">Has llegado a 10</p>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      contador: 0,
+
+      incrementar() {
+          _.contador++;
+      },
+
+      restar() {
+          _.contador--;
+      },
+
+      resetear() {
+          _.contador = 0;
+      }
+  };
+
+  _.mount();
+  </script>
+</body>
+</html>

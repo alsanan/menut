@@ -1,0 +1,25 @@
+<!--
+  @component hover-scroll
+  @description Scrollable container that hides scrollbars until the user hovers over it. Pure CSS, WebKit-only.
+  @usage <hover-scroll style="height:12rem"><p>Long content…</p></hover-scroll>
+  @impl Light-DOM component. The global `scrollbar-color` is overridden to transparent by default so the WebKit `visibility` trick keeps the scrollbar gutter reserved.
+-->
+<template>
+<style>
+  :host {
+    display: block;
+    overflow: overlay;
+    scrollbar-color: transparent transparent;
+    --scroll-thumb: rgba(0, 0, 0, .3);
+  }
+  :host:hover { scrollbar-color: var(--scroll-thumb) transparent; }
+  :host::-webkit-scrollbar { visibility: hidden; }
+  :host:hover::-webkit-scrollbar { visibility: visible; }
+  :host::-webkit-scrollbar,
+  :host::-webkit-scrollbar-track,
+  :host::-webkit-scrollbar-thumb,
+  :host::-webkit-scrollbar-button { background: transparent; }
+  :host:hover::-webkit-scrollbar-thumb { background: var(--scroll-thumb); }
+</style>
+</template>
+

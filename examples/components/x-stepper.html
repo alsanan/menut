@@ -1,0 +1,68 @@
+<!--
+  @component x-stepper
+  @description Numeric stepper with –/+ buttons. Attributes: min, max, step, value. Form-associated.
+  @usage <x-stepper min="0" max="99" value="5"></x-stepper>
+  @impl Script handles button clicks, clamps value, updates display and _internals.setFormValue().
+-->
+<template shadowrootmode="open">
+  <style>
+    :host {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+      border-radius: var(--radius-card, 16px);
+      overflow: hidden;
+      background: var(--bg-card, #fff);
+    }
+    button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      width: 2.5rem;
+      height: 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--fg-muted, oklch(0.55 0.02 90));
+      transition: background-color 0.18s ease, color 0.18s ease;
+      line-height: 1;
+    }
+    button:hover {
+      background: var(--bg, oklch(0.97 0.005 90));
+      color: var(--fg, oklch(0.15 0.01 90));
+    }
+    button:active { background: var(--hairline, oklch(0.9 0.01 90)); }
+    .value {
+      min-width: 3rem;
+      text-align: center;
+      font: 500 var(--fs-body, 16px)/1 inherit;
+      padding: 0 var(--space-2, 8px);
+      border-inline: 1px solid var(--hairline, oklch(0.9 0.01 90));
+    }
+  </style>
+  <button aria-label="Decrease">&minus;</button>
+  <span class="value"></span>
+  <button aria-label="Increase">+</button>
+
+<script>
+const root = this.el.shadowRoot
+  const host = this
+  const display = root.querySelector('.value')
+  const min = parseFloat(host.el.getAttribute('min') || '0')
+  const max = parseFloat(host.el.getAttribute('max') || '999')
+  const step = parseFloat(host.el.getAttribute('step') || '1')
+  let val = parseFloat(host.el.getAttribute('value') || host.el.getAttribute('min') || '0')
+  function render() { display.textContent = val }
+  function set(v) {
+    val = Math.max(min, Math.min(max, v))
+    render()
+    host.el._internals.setFormValue(String(val))
+    host.el.dispatchEvent(new CustomEvent('change', { detail: { value: val } }))
+  }
+  root.querySelectorAll('button')[0].addEventListener('click', () => set(val - step))
+  root.querySelectorAll('button')[1].addEventListener('click', () => set(val + step))
+  render()
+</script>
+</template>
+

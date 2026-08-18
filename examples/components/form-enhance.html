@@ -1,0 +1,321 @@
+<!--
+  @component form-enhance
+  @description Enhanced form with crash recovery (localStorage) and validation UX.
+             Saves form state on input/change, restores on page load, clears on submit.
+             Fields listed in retain attribute persist after submit (unless no-retain is set).
+             Shows validation errors on focusout and submit, clears on input.
+             Based on:
+               - Aaron Gustafson's form-saver (https://github.com/aarongustafson/form-saver)
+               - Alistair Davidson's validation-enhancer (https://gitlab.com/alistairldavidson/validation-enhancer)
+  @usage <form-enhance><form action="/submit">...</form></form-enhance>
+  @impl Shadow DOM slot for light DOM form. Validation messages auto-generated
+         next to each input (no markup required). Uses native Constraint Validation API.
+  @attr retain (space-sep field names to keep after submit), no-retain (disable retention),
+        storage-key, message-prefix (default "validation"),
+        scroll-behavior (default "smooth"), scroll-block, scroll-inline,
+        scroll-align-to-top, scroll-container
+-->
+<template shadowrootmode="open">
+  <style>
+    :host { display: block; }
+  </style>
+  <slot></slot>
+
+<script>
+var host = this
+
+// ---- inject message styles once ----
+if (!document.getElementById('fe-msg-style')) {
+  const s = document.createElement('style')
+  s.id = 'fe-msg-style'
+  s.textContent = '[data-fe-msg] { color: var(--red, #e00); font-size: var(--fs-xs, 0.75rem); margin-top: 0.2rem; line-height: 1.35; display: none; }'
+  document.head.appendChild(s)
+}
+
+// ---- storage check (once) ----
+const _ok = (() => {
+  try { const k = '__form_enhance_test__'; window.localStorage.setItem(k, '1'); window.localStorage.removeItem(k); return true }
+  catch { return false }
+})()
+
+// ---- helpers ----
+function getKey(el) { return el.getAttribute('name') || el.getAttribute('id') || '' }
+function supported(el) {
+  if (el instanceof HTMLTextAreaElement) return true
+  if (el instanceof HTMLSelectElement) return true
+  if (el instanceof HTMLInputElement) return el.type !== 'file' && !['submit','button','reset','image'].includes(el.type)
+  return false
+}
+
+function serialize(form) {
+  const state = {}
+  for (const el of form.elements) {
+    if (!supported(el)) continue
+    const k = getKey(el)
+    if (!k) continue
+    if (!state[k]) state[k] = []
+    state[k].push(ser(el))
+  }
+  return state
+}
+function ser(el) {
+  if (el instanceof HTMLInputElement && (el.type==='checkbox'||el.type==='radio')) return {type:el.type, checked:el.checked, value:el.value}
+  if (el instanceof HTMLSelectElement && el.multiple) return {type:'select-multiple', values:[...el.selectedOptions].map(o=>o.value)}
+  return {type:'value', value:el.value}
+}
+
+function apply(form, state) {
+  const idx = new Map
+  for (const el of form.elements) {
+    if (!supported(el)) continue
+    const k = getKey(el)
+    if (!k || !state[k]) continue
+    const i = idx.get(k) || 0
+    const v = state[k][i]
+    if (v===undefined) continue
+    idx.set(k, i+1)
+    applyVal(el, v)
+  }
+}
+function applyVal(el, v) {
+  if (el instanceof HTMLInputElement) {
+    if (el.type==='checkbox'||el.type==='radio') { el.checked = !!v.checked; return }
+    el.value = v.value ?? ''
+    return
+  }
+  if (el instanceof HTMLSelectElement && el.multiple) {
+    const sel = new Set(Array.isArray(v.values) ? v.values : [])
+    for (const o of el.options) o.selected = sel.has(o.value)
+    return
+  }
+  el.value = v.value ?? ''
+}
+
+function save(key, payload) { if (_ok) window.localStorage.setItem(key, JSON.stringify(payload)) }
+function load(key) {
+  if (!_ok) return null
+  try { const v = window.localStorage.getItem(key); return v ? JSON.parse(v) : null }
+  catch { return null }
+}
+function remove(key) { if (_ok) window.localStorage.removeItem(key) }
+
+function computeKey(form, override) {
+  if (override) return override
+  if (!form) return null
+  const method = (form.method || 'get').toLowerCase()
+  const action = form.getAttribute('action') || window.location.href
+  return 'form-enhance:' + method + ':' + new URL(action, window.location.href).href
+}
+
+// ---- instance state ----
+let initialized = false
+let form = null
+let storageKey = null
+let pendingSubmit = false
+
+// ---- retain ----
+function retainedFields() { return new Set((host.el.getAttribute('retain') || '').split(/\s+/).filter(Boolean)) }
+function shouldRetain() { return !host.el.hasAttribute('no-retain') }
+
+// ---- validation ----
+const validityKeys = ['valueMissing','typeMismatch','patternMismatch','tooLong','tooShort','rangeUnderflow','rangeOverflow','stepMismatch','badInput']
+
+function getPrefix() { return host.el.getAttribute('message-prefix') || 'validation' }
+
+function getMessage(el) {
+  const prefix = getPrefix()
+  for (const key of validityKeys) {
+    if (el.validity[key]) {
+      return el.getAttribute(prefix + '-' + key) || el.getAttribute('data-' + prefix + '-' + key) || el.validationMessage
+    }
+  }
+  return el.validationMessage
+}
+
+function getMsgEl(el) {
+  let id = el.getAttribute('aria-errormessage')
+  if (id) {
+    const existing = document.getElementById(id)
+    if (existing) return existing
+  }
+  // Auto-create message element
+  const msg = document.createElement('small')
+  msg.setAttribute('data-fe-msg', '')
+  msg.setAttribute('role', 'alert')
+  id = 'fe-msg-' + (el.id || Math.random().toString(36).slice(2, 8))
+  msg.id = id
+  el.setAttribute('aria-errormessage', id)
+  el.parentNode.insertBefore(msg, el.nextSibling)
+  return msg
+}
+
+function showError(el) {
+  const msg = getMsgEl(el)
+  msg.textContent = getMessage(el)
+  msg.style.display = 'block'
+}
+
+function clearError(el) {
+  const id = el.getAttribute('aria-errormessage')
+  if (!id) return
+  const msg = document.getElementById(id)
+  if (msg && msg.hasAttribute('data-fe-msg')) {
+    msg.textContent = ''
+    msg.style.display = 'none'
+  }
+}
+
+function validate(el) {
+  if (!supported(el)) return true
+  const valid = el.checkValidity()
+  if (valid) { clearError(el) }
+  else { showError(el) }
+  return valid
+}
+
+function validateAll() {
+  if (!form) return null
+  let firstInvalid = null
+  for (const el of form.elements) {
+    if (!supported(el)) continue
+    if (!validate(el) && !firstInvalid) firstInvalid = el
+  }
+  return firstInvalid
+}
+
+function scrollToInput(el) {
+  if (!el) return
+  const container = host.el.getAttribute('scroll-container')
+  const behavior = host.el.getAttribute('scroll-behavior') || 'smooth'
+  const block = host.el.getAttribute('scroll-block')
+  const inline = host.el.getAttribute('scroll-inline')
+  const alignToTop = host.el.hasAttribute('scroll-align-to-top')
+
+  if (container) {
+    const c = document.querySelector(container)
+    if (c) {
+      const top = el.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop
+      c.scrollTo({ top, behavior })
+      el.focus({ preventScroll: true })
+      return
+    }
+  }
+
+  if (alignToTop) {
+    const val = host.el.getAttribute('scroll-align-to-top')
+    el.scrollIntoView({ behavior, block: 'start' })
+  } else if (block || inline) {
+    el.scrollIntoView({ behavior, block, inline })
+  } else {
+    // Find label to scroll to
+    const label = form.querySelector('label[for="' + el.id + '"]') || el.closest('label')
+    const target = label || el
+    target.scrollIntoView({ behavior, block: 'start' })
+  }
+  el.focus({ preventScroll: true })
+}
+
+// ---- handlers ----
+function onInput(/*e*/) {
+  if (form && storageKey) save(storageKey, serialize(form))
+}
+
+function onValidationInput(e) {
+  clearError(e.target)
+}
+
+function onFocusOut(e) {
+  if (supported(e.target)) validate(e.target)
+}
+
+function onSubmit(e) {
+  const firstInvalid = validateAll()
+  if (firstInvalid) {
+    e.preventDefault()
+    scrollToInput(firstInvalid)
+    return
+  }
+  if (e.defaultPrevented) { pendingSubmit = false; return }
+  save(storageKey, serialize(form))
+  pendingSubmit = true
+}
+
+function onReset() {
+  // Clear all validation messages
+  if (form) {
+    for (const el of form.elements) {
+      if (supported(el)) clearError(el)
+    }
+  }
+  queueMicrotask(() => {
+    if (form && storageKey) save(storageKey, serialize(form))
+  })
+}
+
+function onPageHide() {
+  if (!pendingSubmit || !storageKey) { pendingSubmit = false; return }
+  const fields = retainedFields()
+  if (fields.size > 0 && shouldRetain()) {
+    const saved = load(storageKey)
+    if (saved) {
+      const filtered = Object.fromEntries(Object.entries(saved).filter(([k]) => fields.has(k)))
+      if (Object.keys(filtered).length > 0) { save(storageKey, filtered); pendingSubmit = false; return }
+    }
+  }
+  remove(storageKey)
+  pendingSubmit = false
+}
+
+function init() {
+  if (initialized) return
+  form = host.el.querySelector('form')
+  if (!form) return
+  storageKey = computeKey(form, host.el.getAttribute('storage-key'))
+
+  form.addEventListener('input', onInput)
+  form.addEventListener('change', onInput)
+  form.addEventListener('reset', onReset)
+  form.addEventListener('submit', onSubmit)
+  form.addEventListener('focusout', onFocusOut)
+  form.addEventListener('input', onValidationInput)
+
+  window.addEventListener('pagehide', onPageHide)
+
+  const saved = load(storageKey)
+  if (saved) apply(form, saved)
+  initialized = true
+}
+
+function cleanup() {
+  if (!initialized) return
+  if (form) {
+    form.removeEventListener('input', onInput)
+    form.removeEventListener('change', onInput)
+    form.removeEventListener('reset', onReset)
+    form.removeEventListener('submit', onSubmit)
+    form.removeEventListener('focusout', onFocusOut)
+    form.removeEventListener('input', onValidationInput)
+  }
+  window.removeEventListener('pagehide', onPageHide)
+  initialized = false
+  form = null
+  storageKey = null
+  pendingSubmit = false
+}
+
+// ---- lifecycle ----
+init()
+
+const mo = new MutationObserver(() => {
+  if (!initialized) { init(); if (initialized) mo.disconnect() }
+})
+mo.observe(host.el, { childList: true, subtree: true })
+
+// Public API
+host.saveFormState = () => { if (form && storageKey) save(storageKey, serialize(form)) }
+host.restoreFormState = () => { if (form && storageKey) { const s = load(storageKey); if (s) apply(form, s) } }
+host.clearSavedData = () => { if (storageKey) remove(storageKey) }
+host.validate = (el) => { if (el) validate(el); else validateAll() }
+</script>
+</template>
+

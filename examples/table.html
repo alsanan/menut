@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menut · Tabla</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  @import url(https://weblin.org/css.css);
+
+  body { max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+  th { cursor: pointer; user-select: none; }
+  .pos { width: 3rem; color: var(--fg-muted); }
+</style>
+</head>
+<body>
+  <h1>Tabla</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="pos">#</th>
+        <th :on.click="ordenar('nombre')">Nombre</th>
+        <th :on.click="ordenar('ciudad')">Ciudad</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <template :each="filas">
+        <tr>
+          <td class="pos" ::="item._index + 1"></td>
+          <td ::="item.nombre"></td>
+          <td ::="item.ciudad"></td>
+          <td><button :on.click="eliminar(item._index)">Quitar</button></td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+
+  <p>Total: <span ::="filas.length"></span></p>
+
+  <script src="../menut.js?v=12"></script>
+  <script>
+  window._ = {
+      filas: [
+          { nombre: "Ana", ciudad: "València" },
+          { nombre: "Luis", ciudad: "Castelló" },
+          { nombre: "Pau", ciudad: "Alacant" }
+      ],
+
+      ordenar(clave) {
+          const orden = _.filas.sort((a, b) =>
+              String(a[clave]).localeCompare(String(b[clave])));
+          _.filas = [...orden];
+      },
+
+      eliminar(index) {
+          _.filas.splice(index, 1);
+      }
+  };
+
+  _.mount();
+  </script>
+</body>
+</html>

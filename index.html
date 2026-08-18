@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Menut — HTML-first reactive micro-framework in a single file. One state, HTML directives, no build, no dependencies.">
+<title>Menut — HTML-first reactive micro-framework</title>
+<style>
+  @import url(https://weblin.org/css.css);
+  
+  @view-transition { navigation: auto; }
+  @keyframes scale-down { to { transform: scale(0.8); opacity: 0; } }
+  @keyframes scale-up { from { transform: scale(1.2); opacity: 0; } }
+  /* Custom default transition (replaces browser crossfade) */
+  ::view-transition-old(root) { animation: 350ms cubic-bezier(0.4, 0, 0.2, 1) both scale-down; }
+  ::view-transition-new(root) { animation: 350ms cubic-bezier(0.4, 0, 0.2, 1) both scale-up; }
+	[index] { view-transition-name: index; }
+  ::view-transition-group(index) {
+    animation-duration: 350ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+	[layouts] { view-transition-name: layouts; }
+  ::view-transition-group(layouts) {
+    animation-duration: 350ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+	[components] { view-transition-name: components; }
+  ::view-transition-group(components) {
+    animation-duration: 350ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+	[templates] { view-transition-name: templates; }
+  ::view-transition-group(templates) {
+    animation-duration: 350ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+	/*[container] { view-transition-name: container; }  
+  ::view-transition-group(container) {
+    animation-duration: 350ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  } */
+
+  :root {
+    --sidenav-display: flex;
+  }
+  @media (max-width: 800px) {
+    :root { --sidenav-display: none; }
+  }
+
+  body { margin: 0; padding: 0; max-width: none; }
+  html { scroll-behavior: smooth; }
+
+  .docs {
+    display: flex;
+    min-height: 100vh;
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .docs-sidenav {
+    overflow-y: auto;
+    border-inline-end: 1px solid var(--hairline);
+    display: var(--sidenav-display);
+    flex-direction: column;
+    gap: 0.2rem;
+    position: sticky;
+    top: 10rem;
+    height: 100vh;
+    flex: 0 0 auto;
+    padding: 12rem 0.5rem 0 1rem;
+    scrollbar-width: none;
+  }
+  .docs-sidenav::-webkit-scrollbar { display: none; }
+  .docs-sidenav a {
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius);
+    color: var(--fg-muted);
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .docs-sidenav a:hover { background-color: var(--bg-card); color: var(--fg); text-decoration: none; }
+  .docs-sidenav a[active] { background-color: var(--bg-card); color: var(--fg); font-weight: 600; }
+  .docs-sidenav .head {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--blue);
+    padding: 0.75rem 1rem 0.25rem;
+    font-weight: 600;
+  }
+
+  .docs-main { padding: 1rem 2rem 4rem; flex: 1 1 auto; min-width: 0; max-width: 900px; }
+  @media (max-width: 800px) {
+    .docs-main { padding: 2rem 1rem 4rem; }
+  }
+
+  [logo] { 
+    font-size: 4rem; 
+    padding: 0.25rem; 
+    filter:contrast(150%) saturate(0) drop-shadow(0 0 3px light-dark(gray,white)); 
+    vertical-align:middle;
+  }
+  [menutlogo] {
+    background: text linear-gradient(135deg, #ff1e4b 0%, #ff1e4b 15%, #ffb84d 45%, #4ecd58 85%, #6c5ce7 92%);
+    line-height:2;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-block: var(--space-5); }
+  @media (max-width: 800px) { .pillars { grid-template-columns: 1fr; } }
+  .pillars article { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); }
+
+  .demo-live { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); align-items: start; }
+  @media (max-width: 640px) { .demo-live { grid-template-columns: 1fr; } }
+
+  .directives { width: 100%; }
+  .directives code { white-space: nowrap; }
+  .md-content table, .md-content pre { display: block; max-width: 100%; overflow-x: auto; }
+  @media (max-width: 800px) {
+    .directives { display: block; max-width: 100%; overflow-x: auto; }
+    .directives code { white-space: inherit; }
+  }
+
+  /* Documentation content fetched and rendered with marked */
+  .md-content { border-top: 1px solid var(--hairline); padding-top: 1rem; margin-top: 1.5rem; min-width:75vw; overscroll-behavior:none; }
+  .md-content > :first-child { margin-top: 0; }
+  .md-close { position: sticky; top: 0; display: flex; margin-left: auto; margin-bottom: 1rem; }
+  [theme] { position:fixed; margin:.5rem; right:0; }
+  /*.logo>img {border: 3px solid black; border-radius: 100%; aspect-ratio: 1; padding-right: 9px; }*/
+  h1>svg { transform: translate(-9rem, 3.3rem) scale(1.7); position: fixed; opacity: .5; }
+</style>
+</head>
+<body>
+
+  <define-component src="examples/components/x-code-block.html"></define-component>
+
+  <script>
+  (function() {
+    var saved = localStorage.getItem('theme');
+    if (saved) document.querySelector('[name="color-scheme"]').content = saved;
+  })();
+  </script>
+  <button fab theme :on.click="
+  s=_.qry('meta[name=color-scheme]');
+  g=s.getAttribute('content');
+  switch(g) {
+      case 'light': g='dark'; break;
+      case 'dark': g='light dark'; break;
+      case 'light dark': g='light'; break;
+  }
+  localStorage.setItem('theme',g);
+  s.setAttribute('content',g);">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="moon" aria-hidden="true" class="lucide lucide-moon"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg>
+  </button>
+
+  <div class="docs">
+    <nav class="docs-sidenav">
+
+      <div class="head">Introduction</div>
+      <a href="#introduction">Introduction</a>
+      <a href="#installation">Installation</a>
+
+      <div class="head">Reference</div>
+      <a href="#directives">Directives</a>
+      <a href="#context">Context</a>
+      <a href="#javascript">JavaScript API</a>
+      <a href="#helpers">Helpers</a>
+      <a href="#components">Components (SFC)</a>
+
+      <div class="head">Documentation</div>
+      <a href="docs/spec.md" :on.click="(event.preventDefault(), openDoc('docs/spec.md'))">Specification</a>
+      <a href="docs/api.md" :on.click="(event.preventDefault(), openDoc('docs/api.md'))">API &amp; directives</a>
+      <a href="README.md" :on.click="(event.preventDefault(), openDoc('README.md'))">README</a>
+
+      <hr>
+
+      <div class="head">Examples</div>
+      <a href="#examples">All examples</a>
+      <a href="examples/components.html">Components &rarr;</a>
+      <a href="examples/nested.html">Nested :each &rarr;</a>
+      <a href="examples/granular.html">Granular &rarr;</a>
+      <a href="examples/focus.html">Focus &rarr;</a>
+      <a href="examples/counter.html">Counter &rarr;</a>
+      <a href="examples/todo.html">Todo &rarr;</a>
+      <a href="examples/table.html">Table &rarr;</a>
+      <a href="examples/forms.html">Forms &rarr;</a>
+
+      <div class="head">Tests</div>
+      <a href="#tests">Test suite</a>
+      <a href="test/index.html">Open test &rarr;</a>
+    </nav>
+
+    <main class="docs-main">
+
+      <section id="introduction" templates>
+        <hgroup>
+          <h1 display>
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--fg-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>
+            <span menutlogo>menut</span>
+          </h1>
+          <p>HTML-first reactive <strong>micro-framework</strong> in a single file, no dependencies, no build. Inspired by <a href="https://github.com/bigskysoftware/fixi">Fixi</a>, it rewrites the essence of <a href="https://github.com/vuejs/petite-vue">Petite-Vue</a>.</p>
+        </hgroup>
+
+        <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-block:var(--space-4);">
+          <style>kbd[lines] {
+              background: linear-gradient(45deg, light-dark(#ddd, #666) 6.25%, transparent 16.25%, transparent 50%, light-dark(#ddd, #666) 50%, transparent 66.25%);
+              background-size: 8px 8px;
+          }</style>
+          <kbd lines>One state</kbd>
+          <kbd lines>No build</kbd>
+          <kbd lines>No Virtual DOM</kbd>
+          <kbd lines>Granular reactivity</kbd>
+          <kbd lines>No dependencies</kbd>
+          <kbd lines>Web-native</kbd>
+          <kbd lines>~4.5 Kb</kbd>
+        </div>
+      </section>
+
+      <h6>Three ideas. One library in a single file.</h6>
+
+      <section class="pillars">
+        <article>
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--fg-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          <h3>One state</h3>
+          <p><code>window._</code> is the whole state. The assignment itself makes it reactive, and <code>_.mount()</code> is ready to go.</p>
+          <a href="#javascript"><button primary>API &rarr;</button></a>
+        </article>
+        <article>
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--fg-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <h3>Granular reactivity</h3>
+          <p>When <code>_.user.name</code> changes, only the nodes that read it update. The whole tree is never re-rendered.</p>
+          <a href="examples/granular.html"><button primary>See demo &rarr;</button></a>
+        </article>
+        <article>
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--fg-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <h3>Components (SFC)</h3>
+          <p>Package reusable functionality with <code>&lt;define-component&gt;</code>: typed props, local state and SFC files.</p>
+          <a href="#components"><button primary>Components &rarr;</button></a>
+          <a href="examples/components.html">Examples &rarr;</a>
+        </article>
+      </section>
+      Menut is part of the <a href="https://weblin.org">weblin.org</a> platform.
+
+      <hr>
+
+      <section id="installation">
+        <h2>Installation</h2>
+        <p>A single file, included with one tag:</p>
+        <x-code-block lang="html">&lt;script src="https://cdn.jsdelivr.net/gh/alsanan/menut/menut.min.js"&gt;&lt;/script&gt;</x-code-block>
+        <p>Then define the state and mount:</p>
+        <x-code-block lang="js">window._ = {
+    name: "Ana",
+    counter: 0,
+
+    increment() {
+        _.counter++;
+    }
+};
+
+_.mount();</x-code-block>
+        <p>Assigning <code>window._</code> already makes it reactive and injects the
+        helpers, so <code>_.mount()</code> is ready right after.</p>
+      </section>
+
+      <hr>
+
+      <section id="directives">
+        <h2>Directives</h2>
+        <p>Every directive starts with <code>:</code> and its value is a JavaScript expression evaluated with <code>_</code> as context.</p>
+        <table class="directives">
+          <thead>
+            <tr><th>Directive</th><th>Use</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>:text</code></td><td>Inserts escaped text</td></tr>
+            <tr><td><code>::</code></td><td><i>Syntactic sugar</i> equivalent to <code>:text</code></td></tr>
+            <tr><td><code>:html</code></td><td>Inserts unescaped HTML</td></tr>
+            <tr><td><code>:html-unsafe</code></td><td>Same as <code>:html</code> — a marker for consciously inserting raw HTML</td></tr>
+            <tr><td><code>:model</code></td><td>Two-way binding with forms</td></tr>
+            <tr><td><code>:as</code></td><td>Type coercion for <code>:model</code> (<code>int</code>, <code>number</code>, <code>bool</code>, <code>array</code>, <code>object</code>)</td></tr>
+            <tr><td><code>:transition</code></td><td>View Transition on re-render; modifiers <code>.fade</code>, <code>.scale</code>, <code>.slideup</code>, <code>.shared="name"</code></td></tr>
+            <tr><td><code>:if</code></td><td>Conditional rendering (on <code>&lt;template&gt;</code>)</td></tr>
+            <tr><td><code>:each</code></td><td>Repeats content (on <code>&lt;template&gt;</code>)</td></tr>
+            <tr><td><code>:ref</code></td><td>References an element in <code>_.ref</code></td></tr>
+            <tr><td><code>:on.*</code></td><td>Listens to events. <code>this</code> is the element</td></tr>
+            <tr><td><code>:attribute</code></td><td>Any HTML attribute (<code>:class</code>, <code>:src</code>, <code>:value</code>…)</td></tr>
+          </tbody>
+        </table>
+        <p class="note">If <code>:if</code> or <code>:each</code> appear on a non-<code>&lt;template&gt;</code> element, the console will warn with the problem so you can fix it.</p>
+        <p><small>Full documentation in <a href="docs/api.md" :on.click="(event.preventDefault(), openDoc('docs/api.md'))">docs/api.md</a>.</small></p>
+      </section>
+
+      <hr>
+
+      <section id="context">
+        <h2>Expression context</h2>
+        <p>Available depending on context:</p>
+        <p>
+          <kbd>_</kbd> global state
+          <br>In events: <kbd>this</kbd> is the element and <kbd>event</kbd> the event
+          <br>In <code>:each</code> loops, <kbd>item</kbd> is the iterated element, <kbd>item._index</kbd> its position, and <kbd>item._parent</kbd> the parent loop if any.
+        </p>
+        <p><small>There are no <code>$el</code>, <code>$refs</code>, <code>$nextTick</code>, <code>$parent</code> or <code>$root</code>.</small></p>
+      </section>
+
+      <hr>
+
+      <section id="javascript">
+        <h2>JavaScript API</h2>
+        <p>The whole JavaScript API boils down to two lines:</p>
+        <x-code-block lang="js">window._ = { ... };
+_.mount();</x-code-block>
+        <ul>
+          <li>Assigning <code>window._</code> wraps it in a reactive <code>Proxy</code> and injects the helpers right away.</li>
+          <li><code>_.mount()</code> scans the DOM; it is idempotent and re-scanable: after inserting dynamic HTML just call <code>_.mount(container)</code>.</li>
+          <li>No <code>MutationObserver</code>: you decide when to mount again.</li>
+        </ul>
+      </section>
+
+      <hr>
+
+      <section id="helpers">
+        <h2>Helpers in <code>_</code></h2>
+        <p><code>mount()</code> injects a few minimal one-liner helpers into <code>_</code> (like <code>_.ref</code>): only if you have not defined them yourself, and as <strong>non-enumerable</strong> properties (they don't pollute <code>Object.keys(_)</code> or <code>:each</code> iterations). Because <code>_</code> is the prototype of the expression context, they are usable as bare identifiers in any directive.</p>
+        <table class="directives">
+          <thead><tr><th>Helper</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>qry(sel)</code></td><td><code>document.querySelector(sel)</code></td></tr>
+            <tr><td><code>qryAll(sel)</code></td><td><code>[...document.querySelectorAll(sel)]</code></td></tr>
+            <tr><td><code>net.get(url)</code></td><td><code>fetch(url).then(r =&gt; r.text())</code></td></tr>
+            <tr><td><code>net.json(url)</code></td><td><code>fetch(url).then(r =&gt; r.json())</code></td></tr>
+            <tr><td><code>net.post(url, data)</code></td><td>POST JSON → text</td></tr>
+            <tr><td><code>dispatch(name, detail)</code></td><td><code>CustomEvent</code> (<code>bubbles</code>, <code>composed</code>) on <code>document</code></td></tr>
+            <tr><td><code>sleep(ms)</code></td><td><code>new Promise(r =&gt; setTimeout(r, ms))</code> (for <code>await</code>)</td></tr>
+            <tr><td><code>raf(fn)</code></td><td><code>requestAnimationFrame(fn)</code></td></tr>
+            <tr><td><code>mount(el?)</code></td><td>Mounts (re-mounts) <code>el</code>; accepts a selector or element</td></tr>
+          </tbody>
+        </table>
+        <p><code>dispatch</code> is the complement to <code>:on.myevent</code>: it fires a custom event that any <code>:on.*</code> listener (or <code>addEventListener</code>) can catch. Inside a <code>:on.*</code> handler, <code>this</code> is the element, so <code>this.dispatchEvent(new CustomEvent(...))</code> targets the element itself.</p>
+        <x-code-block lang="html">&lt;button :on.click="dispatch('saved', { id: 5 })"&gt;Save&lt;/button&gt;
+&lt;button :on.click="await sleep(300); mount('#zone')"&gt;…&lt;/button&gt;</x-code-block>
+      </section>
+
+      <hr>
+
+      <section id="components">
+        <h2>Components (SFC)</h2>
+        <p>Menut lets you package reusable functionality into single-file components (SFC), declared with <code>&lt;define-component&gt;</code> and used as custom elements. The reactive core does not change: a component instance is a <code>mount()</code> against its <strong>local state</strong>.</p>
+
+        <h3>Definition &amp; usage</h3>
+        <p>The definition is <strong>explicit and separate from usage</strong>: <code>&lt;define-component&gt;</code> leaves the component registered and ready to be used later by its tag.</p>
+        <x-code-block lang="html">&lt;!-- inline: name + a child &lt;template&gt; -->
+&lt;define-component name="x-counter">
+  &lt;template count:number="0">
+    &lt;style>:host { display: block }&lt;/style>
+    &lt;button :on.click="inc()">Clicks: &lt;span ::="count">&lt;/span>&lt;/button>
+    &lt;script>this.inc = () =&gt; this.count++&lt;/script>
+  &lt;/template>
+&lt;/define-component>
+
+&lt;!-- external: the tag comes from the filename -->
+&lt;define-component src="components/x-counter.html">&lt;/define-component>
+
+&lt;!-- usage (requires a prior definition) -->
+&lt;x-counter>&lt;/x-counter>
+&lt;x-counter count="10">&lt;/x-counter></x-code-block>
+
+        <h3>The external SFC file</h3>
+        <p>A <code>.html</code> file with a single <code>&lt;template&gt;</code> (identical to the inline one):</p>
+        <x-code-block lang="html">&lt;!-- components/x-counter.html -->
+&lt;template count:number="0">
+  &lt;style>:host { display: block }&lt;/style>
+  &lt;button :on.click="inc()">Clicks: &lt;span ::="count">&lt;/span>&lt;/button>
+  &lt;script>this.inc = () =&gt; this.count++&lt;/script>
+&lt;/template></x-code-block>
+        <p>The tag is derived from the filename (<code>components/x-counter.html</code> → <code>x-counter</code>), so the name must contain a hyphen. It is loaded with <code>fetch()</code> + <code>DOMParser</code> (which never runs scripts) and waiting instances are booted once it arrives.</p>
+
+        <h3>State &amp; instances</h3>
+        <ul>
+          <li><strong>Light DOM by default</strong> (no shadow). Add <code>shadowrootmode="open"</code> to the <code>&lt;template&gt;</code> to encapsulate.</li>
+          <li>The template binds to the instance <strong>local state</strong>: <code>_</code> is local and the global is accessed as <code>window._</code> (no automatic fallback to the global).</li>
+          <li>Inside the component <code>&lt;script&gt;</code>, <code>this</code> is the local reactive state; <code>this.el</code> is the element.</li>
+          <li>Each instance is independent: a component inside <code>:each</code> creates one instance per row, and the element props bind with the parent context (<code>&lt;x-num :num="item.v"&gt;</code>).</li>
+        </ul>
+
+        <h3>Props</h3>
+        <p>They are declared on the <code>&lt;template&gt;</code> with <code>name:type="default"</code> attributes:</p>
+        <x-code-block lang="html">&lt;template count:number="0" label:string="hello" active:boolean></x-code-block>
+        <table class="directives">
+          <thead><tr><th>Type</th><th>Coercion</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><td><code>:string</code></td><td><code>String(v)</code></td><td><code>""</code></td></tr>
+            <tr><td><code>:number</code></td><td><code>Number(v)</code></td><td><code>0</code></td></tr>
+            <tr><td><code>:boolean</code></td><td><code>true</code> unless <code>"false"</code></td><td><code>false</code></td></tr>
+            <tr><td><code>:date</code></td><td><code>new Date(v)</code></td><td><code>null</code></td></tr>
+            <tr><td><code>:array</code></td><td><code>JSON.parse(v)</code></td><td><code>[]</code></td></tr>
+            <tr><td><code>:object</code></td><td><code>JSON.parse(v)</code></td><td><code>{}</code></td></tr>
+            <tr><td>(no suffix)</td><td>auto-detect</td><td>as-is</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>Primitives <strong>reflect</strong> to the attribute (state ↔ attribute); arrays/objects are property-only.</li>
+          <li>Prop names must be <strong>lowercase</strong> (HTML attributes are case-insensitive).</li>
+          <li><code>onpropchange</code> fires when a prop changes, whether from the attribute or the state.</li>
+        </ul>
+
+        <h3>Lifecycle</h3>
+        <p>In the <code>&lt;script&gt;</code> you can assign callbacks (all with <code>this</code> = state):</p>
+        <ul>
+          <li><code>this.onpropchange = (name, val) =&gt; {}</code> — when a prop changes.</li>
+          <li><code>this.onconnected = () =&gt; {}</code> — when the element connects (DOM ready).</li>
+          <li><code>this.ondisconnected = () =&gt; {}</code> — when it disconnects.</li>
+        </ul>
+
+        <h3>Programmatic API</h3>
+        <x-code-block lang="js">_.define("x-counter",
+    "&lt;button :on.click=\"inc()\">…&lt;/button>&lt;script>this.inc = …&lt;/script>",
+    { count: { type: "number", default: 0 } });</x-code-block>
+
+        <h3>How it works under the hood</h3>
+        <p><code>mount()</code> registers <code>&lt;define-component&gt;</code> blocks <strong>before</strong> scanning, so definitions work even when they come after their usages. On registration the <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> are extracted from the template content (not cloned per instance); the style is injected once with scope (<code>tag { … }</code> + <code>:host</code>→tag). Each instance boots with a local reactive state (props + script methods), clones the template, scans it against that state and inserts it into the light DOM.</p>
+
+        <h3>What to expect</h3>
+        <ul>
+          <li><strong>Explicit definition</strong>: a usage without a definition stays empty (and silent).</li>
+          <li>The <code>&lt;script&gt;</code> goes <strong>inside</strong> the <code>&lt;template&gt;</code>: that way it is inert at parse time and Menut extracts it at definition.</li>
+          <li><strong>Full reactivity</strong>: the component template uses the same directives as the rest.</li>
+          <li><strong>Real reuse</strong>: the same component with different props and independent states.</li>
+          <li>A component can use other components (nested) and live inside <code>:each</code>.</li>
+          <li><strong>v1 limitations</strong>: the <code>&lt;script&gt;</code> is synchronous (no top-level <code>await</code>); it <strong>can</strong> touch the DOM via <code>this.el</code> (runs after the template is rendered), but geometry measurements are unreliable before the first paint (use <code>requestAnimationFrame</code> or measure on interaction). Prop names are lowercase.</li>
+        </ul>
+
+        <p><small>Full example in <a href="examples/components.html">examples/components.html</a> · Reference in <a href="docs/api.md" :on.click="(event.preventDefault(), openDoc('docs/api.md'))">docs/api.md</a>.</small></p>
+      </section>
+
+      <hr>
+
+      <section>
+        <h2>Live demo</h2>
+        <p>These pages also use Menut. <strong>Menut is mounted in this very document.</strong></p>
+
+        <div class="demo-live">
+
+          <div tabs>
+            <div tabbar>
+              <input type="radio" name="counter" data-label="Counter" checked>
+              <input type="radio" name="counter" data-label="Source">
+            </div>
+            <section>
+              <article>
+                <h3>Counter</h3>
+                <output style="font-size:2.5rem" ::="counter"></output>
+                <div cluster>
+                  <button :on.click="decrement()">−</button>
+                  <button :on.click="increment()">+</button>
+                </div>
+              </article>
+            </section>
+            <section>
+               <x-code-block lang="html">
+  &lt;output style="font-size:2.5rem" ::="counter">&lt;/output>
+  &lt;div cluster>
+    &lt;button :on.click="decrement()">−&lt;/button>
+    &lt;button :on.click="increment()">+&lt;/button>
+  &lt;/div>
+  <hr>
+_.increment = () => { _.counter++; }
+_.decrement = () => { _.counter--; }
+               </x-code-block>
+            </section>
+          </div>
+
+
+
+          <div tabs>
+            <div tabbar>
+              <input type="radio" name="todo" data-label="Tasks" checked>
+              <input type="radio" name="todo" data-label="Source">
+            </div>
+            <section>
+              <article>
+                <h3>Tasks</h3>
+                <ul style="list-style:none;padding:0">
+                  <template :each="tasks">
+                    <li style="display:flex;gap:.5rem;align-items:center">
+                      <input type="checkbox" :model="item.done" :id="'todo'+item._index">
+                      <label style="flex:1" ::="item.text" :for="'todo'+item._index"></label>
+                      <button fab :on.click="remove(item._index)">🗑️</button>
+                    </li>
+                  </template>
+                </ul>
+                <form inline style="margin-top:1rem">
+                  <input type="text" :model="newTask" placeholder="New task" style="flex:1">
+                  <button :on.click="add(event)">Add</button>
+                </form>
+              </article>
+            </section>
+            <section>
+               <x-code-block lang="html">
+&lt;ul style="list-style:none;padding:0">
+  &lt;template :each="tasks">
+    &lt;li style="display:flex;gap:.5rem;align-items:center">
+      &lt;input type="checkbox" :model="item.done" :id="'todo'+item._index">
+      &lt;label style="flex:1" ::="item.text" :for="'todo'+item._index">&lt;/label>
+      &lt;button fab :on.click="remove(item._index)">🗑️ &lt;/button>
+    &lt;/li>
+  &lt;/template>
+&lt;/ul>
+&lt;form inline style="margin-top:1rem">
+  &lt;input type="text" :model="newTask" placeholder="New task" style="flex:1">
+  &lt;button :on.click="add(event)">Add&lt;/button>
+&lt;/form>
+<hr>
+_.add = (event)=> {
+    event.preventDefault();
+    const text = _.newTask.trim();
+    if (text) _.tasks.push({ text, done: false });
+    _.newTask = "";
+}
+
+_.remove = (index)=> { _.tasks.splice(index, 1); }
+
+               </x-code-block>
+            </section>
+          </div>
+
+        </div>
+      </section>
+
+      <hr>
+
+      <section id="documentation">
+        <h2>Documentation</h2>
+        <p>Everything you need to know about Menut lives in three documents, kept as the project's source of truth.</p>
+        <div card-grid>
+          <article id="specification">
+            <header><h3>Specification</h3></header>
+            <p>Philosophy, design decisions, internal architecture and code rules. The project's source of truth.</p>
+            <a href="docs/spec.md" :on.click="(event.preventDefault(), openDoc('docs/spec.md'))"><button secondary>docs/spec.md &rarr;</button></a>
+          </article>
+          <article id="api">
+            <header><h3>API &amp; directives</h3></header>
+            <p>Full reference for every directive (<code>::</code>, <code>:model</code>, <code>:each</code>…) and the expression context.</p>
+            <a href="docs/api.md" :on.click="(event.preventDefault(), openDoc('docs/api.md'))"><button secondary>docs/api.md &rarr;</button></a>
+          </article>
+          <article id="readme">
+            <header><h3>README</h3></header>
+            <p>Quick overview: what Menut is, installation and a complete 30-line example.</p>
+            <a href="README.md" :on.click="(event.preventDefault(), openDoc('README.md'))"><button secondary>README.md &rarr;</button></a>
+          </article>
+        </div>
+        <dialog id="contenido" class="md-content" aria-live="polite" closedby="any">
+          <button fab class="md-close" commandfor="contenido" command="close" aria-label="Close" title="Close">×</button>
+          <div id="contenido-body"></div>
+        </dialog>
+      </section>
+
+      <hr>
+
+      <section id="examples">
+        <h2>Examples</h2>
+        <p>Demos ready to open in the browser. They all use real Menut.</p>
+        <div card-grid>
+          <article>
+            <h3>Components (SFC)</h3>
+            <p>Single-file components with <code>&lt;define-component&gt;</code>: typed props, light DOM, and external loading via <code>src</code>.</p>
+            <a href="examples/components.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Nested :each</h3>
+            <p>Nested <code>:each</code> loops: albums with tracks, with <code>item</code> and <code>item._index</code> at each level.</p>
+            <a href="examples/nested.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Granular reactivity</h3>
+            <p>Changing one branch does not re-render the other: each branch counts its DOM mutations.</p>
+            <a href="examples/granular.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Focus is kept</h3>
+            <p>With a loop of inputs, adding a row does not steal focus from what you are typing.</p>
+            <a href="examples/focus.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Transitions</h3>
+            <p><code>:transition</code> with <code>.scale</code>, <code>.fade</code>, <code>.slideup</code> and <code>.shared</code> morphs.</p>
+            <a href="examples/transition.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Counter</h3>
+            <p><code>::</code>, <code>:text</code>, <code>:on.click</code> and <code>:hidden</code>.</p>
+            <a href="examples/counter.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Todo</h3>
+            <p><code>:model</code>, <code>:each</code>, <code>item</code> and <code>item._index</code>.</p>
+            <a href="examples/todo.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Table</h3>
+            <p><code>:each</code> over tables, sorting and reactive <code>tasks.length</code>.</p>
+            <a href="examples/table.html"><button primary>View &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Forms</h3>
+            <p><code>:model</code> on text, checkbox, radio and select, and <code>:html</code>.</p>
+            <a href="examples/forms.html"><button primary>View &rarr;</button></a>
+          </article>
+        </div>
+      </section>
+
+      <hr>
+
+      <section id="tests">
+        <h2>Tests</h2>
+        <p>A self-contained suite that exercises every directive and shows the result on screen. Open it in any browser.</p>
+        <a href="test/index.html"><button primary>Run the tests &rarr;</button></a>
+        <p style="margin-top:1rem"><small>During development the same suite runs against <code>menut.js</code> and <code>menut.min.js</code> to check they are equivalent.</small></p>
+      </section>
+
+      <hr>
+
+      <footer>
+        <p>Built with Menut, which defines itself. Specification and design decisions in <a href="docs/spec.md">docs/spec.md</a>.</p>
+      </footer>
+
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="menut.min.js?v=12"></script>
+  <script>
+  window._ = {
+      counter: 0,
+      newTask: "",
+      tasks: [
+          { text: "Read the spec", done: true },
+          { text: "Open the examples", done: false }
+      ],
+
+      increment() { _.counter++; },
+      decrement() { _.counter--; },
+
+      add(event) {
+          event.preventDefault();
+          const text = _.newTask.trim();
+          if (text) _.tasks.push({ text, done: false });
+          _.newTask = "";
+      },
+
+      remove(index) {
+          _.tasks.splice(index, 1);
+      },
+
+      async openDoc(href) {
+          const d = _.qry('#contenido');
+          d.querySelector('#contenido-body').innerHTML = marked.parse(await _.net.get(href));
+          d.showModal();
+      }
+  };
+
+  _.mount();
+
+  /* ——— Scrollspy ——— highlight the current section + auto-scroll the sidebar ——— */
+  (() => {
+      const sidebar = document.querySelector('.docs-sidenav');
+      if (!sidebar) return;
+      const links = Array.from(sidebar.querySelectorAll('a[href^="#"]'));
+      const sections = links
+          .map(a => document.getElementById(a.getAttribute('href').slice(1)))
+          .filter(Boolean);
+      if (!sections.length) return;
+
+      let current = null;
+
+      function activate(link) {
+          if (link === current) return;
+          if (current) current.removeAttribute('active');
+          link.setAttribute('active', '');
+          current = link;
+          // keep the active link visible inside the scrollable sidebar
+          const side = sidebar.getBoundingClientRect();
+          const lr = link.getBoundingClientRect();
+          if (lr.top < side.top || lr.bottom > side.bottom) {
+              sidebar.scrollTo({
+                  top: sidebar.scrollTop + (lr.top - side.top) - sidebar.clientHeight / 2 + lr.height / 2,
+                  behavior: 'smooth'
+              });
+          }
+      }
+
+      // reference line near the top of the viewport (below the sticky offset)
+      const OFFSET = window.innerHeight * 0.2;
+
+      function update() {
+          let best = null;
+          for (let i = 0; i < sections.length; i++) {
+              const rect = sections[i].getBoundingClientRect();
+              if (rect.top <= OFFSET) best = links[i];   // last section whose top passed the line
+          }
+          if (!best && sections[0].getBoundingClientRect().top > OFFSET) best = links[0];
+          if (best) activate(best);
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => { update(); ticking = false; });
+      }, { passive: true });
+
+      update();
+  })();
+
+  if (localStorage.getItem('theme')) document.querySelector('meta[name=color-scheme]').setAttribute('content',localStorage.getItem('theme'));
+  </script>
+</body>
+</html>
