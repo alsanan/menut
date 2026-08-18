@@ -1,0 +1,55 @@
+name: Verify component
+
+on:
+  pull_request:
+    paths:
+      - "components/**"
+      - "examples/components.html"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Identify changed component files
+        id: changed
+        run: |
+          # Get all .html files changed in components/ (added or modified)
+          FILES=$(gh api repos/$GITHUB_REPOSITORY/pulls/${{ github.event.pull_request.number }}/files \
+            --jq '[.[] | select(.filename | startswith("components/") and endswith(".html")) | .filename] | join(" ")')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run verification on each changed component
+        if: steps.changed.outputs.files != ''
+        run: |
+          EXIT_CODE=0
+          for FILE in ${{ steps.changed.outputs.files }}; do
+            if [ ! -f "$FILE" ]; then continue; fi
+            bun scripts/verify-component.mjs "$FILE" || EXIT_CODE=1
+          done
+          exit $EXIT_CODE
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run verification on _template (smoke test)
+        if: steps.changed.outputs.files == ''
+        run: bun scripts/verify-component.mjs components/_template.html
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}

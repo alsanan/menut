@@ -1,0 +1,56 @@
+<!--
+  @component sse-connect
+  @category content
+  @description Opens a Server-Sent Events connection to `src`. Dispatches a `receive` CustomEvent for every message; if the `append` attribute is present, inserts the message data as HTML after the component. Useful for pushing <server-action> fragments from the backend.
+  @usage <sse-connect src="/events" :on.receive="log($event.detail.data)"></sse-connect> · <sse-connect src="stream.php" append></sse-connect>
+  @impl Creates an EventSource. Emits `receive` (detail.data), `sse-open` and `sse-error`. Closes on disconnect via this.signal.
+-->
+<template shadowrootmode="open" src:string="" append:boolean="false">
+<style>:host { display: none; }</style>
+<script>
+const host = this
+const url = host.src
+if (!url) return
+
+let es = null
+try {
+  es = new EventSource(url)
+} catch (e) {
+  console.error('[sse-connect] failed to create EventSource for', url, e)
+  return
+}
+
+function receive(raw) {
+  host.el.dispatchEvent(new CustomEvent('receive', {
+    bubbles: true,
+    composed: true,
+    detail: { data: raw, url }
+  }))
+  if (host.append) {
+    const tpl = document.createElement('template')
+    tpl.innerHTML = raw
+    const parent = host.el.parentNode
+    const after = host.el.nextSibling
+    while (tpl.content.firstChild) {
+      parent.insertBefore(tpl.content.firstChild, after)
+    }
+  }
+}
+
+es.addEventListener('open', () => {
+  host.el.dispatchEvent(new CustomEvent('sse-open', { bubbles: true, composed: true, detail: { url } }))
+}, { signal: host.signal })
+
+es.addEventListener('message', e => {
+  receive(e.data)
+}, { signal: host.signal })
+
+es.addEventListener('error', e => {
+  host.el.dispatchEvent(new CustomEvent('sse-error', { bubbles: true, composed: true, detail: { event: e, url } }))
+}, { signal: host.signal })
+
+host._cleanup = () => {
+  if (es) { es.close(); es = null }
+}
+</script>
+</template>

@@ -1,0 +1,55 @@
+<!--
+  @component sticky-sidebar
+  @category content
+  @description Sticky sidebar with two modes. Default: position:sticky with align-self:start (ixis.app/780 pattern). Track mode ([track]): visible vertical shaft container (like a lift shaft) — the sidebar (cabin) moves inside it as you scroll. Set width via CSS. CSS vars: --offset (sticky top gap, default 1rem).
+  @usage <sticky-sidebar style="width:280px">Content</sticky-sidebar>
+  @impl CSS-only. Default: position:sticky on host, align-self:start prevents full-height stretch in flex/grid parent. Track: host full-height via align-self:stretch, visible shaft with border/background, sticky cabin moves inside shaft.
+--><template shadowrootmode="open"><style>
+:host {
+  display: block;
+  position: sticky;
+  top: var(--offset, 1rem);
+  align-self: start;
+}
+
+:host([track]) {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shaft {
+  display: block;
+  position: relative;
+}
+
+:host([track]) .shaft {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+.cabin {
+  display: contents;
+}
+
+:host([track]) .cabin {
+  display: block;
+  position: sticky;
+  top: var(--offset, 1rem);
+  z-index: 1;
+  background: var(--bg-card);
+  border: var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+</style>
+<div class="shaft" part="shaft">
+  <div class="cabin" part="cabin">
+    <slot></slot>
+  </div>
+</div>
+</template>

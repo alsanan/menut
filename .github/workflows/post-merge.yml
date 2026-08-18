@@ -1,0 +1,35 @@
+name: Post-merge docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "components/**"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Regenerate docs/components.md
+        run: bun scripts/gen-component-docs.mjs
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/components.md
+          if git diff --cached --quiet; then
+            echo "No changes to docs/components.md"
+          else
+            git commit -m "chore: regenerate docs/components.md [skip ci]"
+            git push
+          fi

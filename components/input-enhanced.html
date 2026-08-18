@@ -1,0 +1,98 @@
+<!--
+  @component input-enhanced
+  @category forms
+  @description Drop-in enhanced <input> wrapper. Passes label, hint, error as Chrome autofill hints; all other attributes go directly to the inner <input>. Forwards all events.
+  @usage <input-enhanced label="Email" hint="We'll never share your email" type="email" required placeholder="email@example.com"></input-enhanced>
+  @impl Light DOM. Reads label/hint/error from host, copies remaining attributes to inner input, re-dispatches all inner events on the host. External CSS (weblin.css.css) applies directly to the inner <input>. Works with :model via bubbling input/change events.
+-->
+<template>
+<style>
+input-enhanced {
+  display: block;
+  font: inherit;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+.field-label {
+  font-size: var(--fs-sm, .875rem);
+  font-weight: 500;
+  color: var(--fg, oklch(0.15 0.01 90));
+}
+.field-hint {
+  font-size: var(--fs-xs, .75rem);
+  color: var(--fg-muted, oklch(0.55 0.02 90));
+}
+.field-error {
+  font-size: var(--fs-xs, .75rem);
+  color: var(--red, oklch(0.6 0.2 25));
+}
+.field-hint:empty, .field-error:empty {
+  display: none;
+}
+</style>
+<div class="field">
+  <label class="field-label"></label>
+  <input>
+  <small class="field-hint"></small>
+  <small class="field-error"></small>
+</div>
+
+<script>
+const host = this
+const el = host.el
+const label = el.querySelector('.field-label')
+const input = el.querySelector('input')
+const hint = el.querySelector('.field-hint')
+const error = el.querySelector('.field-error')
+
+const RESERVED = new Set(['label', 'hint', 'error'])
+
+for (const attr of [...el.attributes]) {
+  if (RESERVED.has(attr.name)) continue
+  input.setAttribute(attr.name, attr.value)
+}
+
+function syncText(node, name) {
+  const v = el.getAttribute(name)
+  node.textContent = v || ''
+  if (name !== 'label') el.toggleAttribute(name, !!v)
+}
+syncText(label, 'label')
+syncText(hint, 'hint')
+syncText(error, 'error')
+
+const mo = new MutationObserver(() => {
+  for (const attr of [...el.attributes]) {
+    if (RESERVED.has(attr.name)) {
+      syncText(attr.name === 'label' ? label : attr.name === 'hint' ? hint : error, attr.name)
+    } else {
+      input.setAttribute(attr.name, attr.value)
+    }
+  }
+  for (const attr of [...input.attributes]) {
+    if (!el.hasAttribute(attr.name) && !RESERVED.has(attr.name)) {
+      input.removeAttribute(attr.name)
+    }
+  }
+})
+mo.observe(el, { attributes: true, attributeOldValue: true })
+
+const EVENTS = [
+  'input', 'change', 'focus', 'blur',
+  'keydown', 'keyup', 'keypress',
+  'click', 'dblclick', 'mousedown', 'mouseup', 'mouseenter', 'mouseleave',
+  'touchstart', 'touchend', 'touchmove',
+  'select', 'search', 'invalid', 'reset', 'submit'
+]
+for (const type of EVENTS) {
+  input.addEventListener(type, (e) => {
+    el.dispatchEvent(new e.constructor(e.type, e))
+  }, { signal: host.signal })
+}
+
+Object.defineProperty(host, 'input', { value: input, enumerable: false })
+</script>
+</template>

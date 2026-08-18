@@ -1,0 +1,72 @@
+<!--
+  @component foot-note
+  @category layout
+  @description Inline footnote with superscript number. Click the number to show a fixed popover panel at the bottom of the viewport. Uses the Popover API.
+  @usage <foot-note num="1">Footnote content here</foot-note>
+  @impl Inline button (vertical-align: super) toggles a popover panel (position: fixed, bottom: 0). Popover API provides auto close on outside click. No JS needed beyond toggle.
+-->
+<template shadowrootmode="open">
+<style>
+  :host {
+    display: inline;
+  }
+  .num {
+    display: inline;
+    vertical-align: super;
+    font-size: 0.7em;
+    padding: 0 0.2em;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--accent, oklch(0.55 0.15 145));
+    font-weight: 600;
+    line-height: 1;
+    font-family: inherit;
+  }
+  .num:hover {
+    text-decoration: underline;
+  }
+  .panel {
+    position: fixed;
+    inset: auto 0 0 50%;
+    transform: translateX(-50%);
+    max-width: min(90%, 40rem);
+    width: max-content;
+    min-width: 12rem;
+    padding: 1rem 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    background: var(--bg-card, #fff);
+    color: var(--fg, oklch(0.15 0.01 90));
+    box-shadow: 0 -4px 24px oklch(0 0 0 / 0.15);
+    border-radius: var(--radius, 0.7rem) var(--radius, 0.7rem) 0 0;
+    border: 0;
+    box-sizing: border-box;
+    z-index: 100;
+  }
+  .panel:popover-open {
+    animation: slide-up .2s ease-out;
+  }
+  @keyframes slide-up {
+    from { transform: translateX(-50%) translateY(100%); }
+    to { transform: translateX(-50%) translateY(0); }
+  }
+</style>
+<button class="num" part="num">1</button>
+<div class="panel" part="panel" popover="auto">
+  <slot></slot>
+</div>
+
+<script>
+const root = this.el.shadowRoot
+  const host = this
+  const btn = root.querySelector('.num')
+  const panel = root.querySelector('.panel')
+  btn.textContent = host.el.getAttribute('num') || '1'
+  btn.addEventListener('click', () => panel.togglePopover())
+  panel.addEventListener('toggle', () => {
+    btn.setAttribute('aria-expanded', panel.matches(':popover-open') ? 'true' : 'false')
+  })
+</script>
+</template>
+

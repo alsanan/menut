@@ -1,0 +1,38 @@
+<!--
+  @component your-name
+  @category forms
+  @description One-line summary of what the component does.
+  @usage <your-name prop="value"></your-name>
+  @impl Explain the internal mechanism: events, observers, reactivity, cleanup.
+-->
+<template prop1:string="" prop2:number="0" prop3:boolean="false">
+<style>
+your-name {
+  display: block;
+}
+</style>
+
+<!-- Component markup here -->
+
+<script>
+const host = this
+const el = host.el
+
+// Props are reactive: host.prop1, host.prop2, host.prop3
+// host.signal is an AbortController signal — use it for all listeners.
+
+function render() {
+  // update DOM from props
+}
+
+host.onpropchange = (name, value) => {
+  if (name === 'prop1') render()
+}
+
+host.ondisconnected = () => {
+  // cleanup observers, etc.
+}
+
+render()
+</script>
+</template>

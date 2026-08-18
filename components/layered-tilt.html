@@ -1,0 +1,173 @@
+<!--
+  @component layered-tilt
+  @category 3d
+  @description Perspective tilt with per-child translateZ layers. Slotted elements with layer="Z" attribute. Attributes: max, scale, perspective.
+  @usage <layered-tilt max="15" scale="1.05"><div layer="40">Front</div><div layer="-20">Back</div></layered-tilt>
+  @impl Script reads per-element layer attribute, applies translateZ during pointermove. Wrapper rotates via perspective().
+-->
+<template shadowrootmode="open">
+
+<style>
+
+:host{
+    display:inline-block;
+    position:relative;
+    perspective:1000px;
+    margin-inline: 25% !important;
+    border: var(--border);
+    padding: 1rem !important;
+    border-radius: var(--radius);
+}
+
+
+#wrapper{
+
+    position:relative;
+
+    width:100%;
+    height:100%;
+
+    transform-style:preserve-3d;
+
+    transition:
+        transform .18s cubic-bezier(.03,.98,.52,.99);
+
+    will-change:transform;
+
+}
+
+
+::slotted(*){
+
+    transition:
+        transform .35s cubic-bezier(.03,.98,.52,.99);
+
+    transform-style:preserve-3d;
+
+    will-change:transform;
+
+}
+
+</style>
+
+<div id="wrapper">
+
+    <slot></slot>
+
+</div>
+
+
+<script>
+const host=this;
+const root=host.el.shadowRoot;
+
+const wrapper=root.querySelector("#wrapper");
+
+const slot=root.querySelector("slot");
+
+const MAX=Number(host.el.getAttribute("max")||15);
+
+const SCALE=Number(host.el.getAttribute("scale")||1.05);
+
+const PERSPECTIVE=
+    Number(host.el.getAttribute("perspective")||1000);
+
+let layers=[];
+
+
+
+function refreshLayers(){
+
+    layers=
+        slot
+        .assignedElements({flatten:true})
+        .map(el=>({
+
+            el,
+
+            z:Number(
+                el.getAttribute("layer")||0
+            )
+
+        }));
+
+}
+
+slot.addEventListener(
+    "slotchange",
+    refreshLayers
+);
+
+refreshLayers();
+
+
+host.el.addEventListener(
+    "pointermove",
+    e=>{
+
+        const r=
+            host.el.getBoundingClientRect();
+
+        const px=
+            (e.clientX-r.left)/r.width;
+
+        const py=
+            (e.clientY-r.top)/r.height;
+
+        const ry=
+            (px-.5)*MAX*2;
+
+        const rx=
+            (.5-py)*MAX*2;
+
+
+        wrapper.style.transform=`
+
+            perspective(${PERSPECTIVE}px)
+
+            rotateX(${rx}deg)
+
+            rotateY(${ry}deg)
+
+            scale(${SCALE})
+
+        `;
+
+
+        layers.forEach(({el,z})=>{
+
+            el.style.transform= `translateZ(${z}px)`;
+
+        });
+
+    }
+);
+
+host.el.addEventListener(
+    "pointerleave",
+    ()=>{
+
+        wrapper.style.transform=`
+
+            perspective(${PERSPECTIVE}px)
+
+            rotateX(0deg)
+
+            rotateY(0deg)
+
+            scale(1)
+
+        `;
+
+
+        layers.forEach(({el})=>{
+
+            el.style.transform="";
+
+        });
+
+    }
+);
+</script>
+</template>
+

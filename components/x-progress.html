@@ -1,0 +1,42 @@
+<!--
+  @component x-progress
+  @category data
+  @description Horizontal progress bar. Prop value (0-100). Variants: indeterminate (no value), danger, warning, info.
+  @usage <x-progress value="75"></x-progress>
+  @impl Light DOM (template `light`) — inherits page styles, no <slot>. Typed prop `value:number:0`. onpropchange updates the fill reactively. Indeterminate via CSS keyframes (auto-namespaced by the loader).
+-->
+<template value:number="0">
+  <style>
+    :host {
+      display: block;
+      position: relative;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--hairline, oklch(0.9 0.01 90));
+      overflow: hidden;
+    }
+    :host([indeterminate]) .fill { width: 50% !important; animation: indeterminate 1.5s ease infinite; }
+    .fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--green, oklch(0.65 0.18 155));
+      transition: width 0.4s ease;
+    }
+    :host([danger]) .fill { background: var(--red, oklch(0.65 0.2 25)); }
+    :host([warning]) .fill { background: var(--yellow, oklch(0.75 0.15 85)); }
+    :host([info]) .fill { background: var(--blue, oklch(0.55 0.15 250)); }
+    @keyframes indeterminate {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(250%); }
+    }
+  </style>
+  <div class="fill"></div>
+
+<script>
+const fill = this.el.querySelector('.fill')
+  const render = () => { fill.style.width = Math.max(0, Math.min(100, this.value)) + '%' }
+  this.onpropchange = (name) => { if (name === 'value') render() }
+  render()
+</script>
+</template>
+

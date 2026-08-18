@@ -1,0 +1,151 @@
+<!--
+  @component html-load
+  @category content
+  @description Loading agent: fetches an HTML fragment (fetch) and places it at a target with a swap strategy. Reactive src reloads. Optional entrance animation via animate attribute. State attrs [loading] / [error].
+  @usage <html-load src="/frag.html" target="#zone" swap="beforeend" form="#myForm" animate></html-load>
+  @impl Fetch agent. Props: src (reactive), method (get/post/...), target ("self" or selector), swap (replace/inner/none/before/beforeend/after/afterbegin), form (selector). load({...}) merges over props and returns a Promise. Form data + optional values merged into request. Scripts from the response are re-executed in main document scope. Events: html-load:request (cancelable) / response (cancelable, edit detail.text) / swap / error / done.
+-->
+<template shadowrootmode="open"
+         src:string method:string target:string swap:string form:string every:string>
+  <style>
+    :host { display: block; }
+    #loading { display: none; }
+    :host([loading]) #loading { display: block; }
+    [part=error] { display: none; }
+    :host([error]) [part=error] { display: block; }
+    :host([error]) #loading { display: none; }
+  </style>
+  <div id="loading"><slot name="loading">Loading...</slot></div>
+  <div part="error">Failed to load</div>
+
+<script>
+const host = this;
+
+  function collectData(formSel, values) {
+    const fd = new FormData();
+    if (formSel) {
+      const form = document.querySelector(formSel);
+      if (form) new FormData(form).forEach((v, k) => fd.append(k, v));
+    }
+    if (values) Object.entries(values).forEach(([k, v]) => fd.set(k, v));
+    return fd;
+  }
+
+  function addQuery(url, fd) {
+    const qs = new URLSearchParams();
+    fd.forEach((v, k) => qs.append(k, v));
+    const q = qs.toString();
+    if (!q) return url;
+    return url + (url.includes('?') ? '&' : '?') + q;
+  }
+
+  function parseAndExecute(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    tpl.content.querySelectorAll('script').forEach(s => {
+      const ns = document.createElement('script');
+      for (const a of s.attributes) ns.setAttribute(a.name, a.value);
+      ns.textContent = s.textContent;
+      s.replaceWith(ns);
+    });
+    return [...tpl.content.childNodes];
+  }
+
+  function resolveTarget(host, target) {
+    if (target === 'self') return host;
+    const el = document.querySelector(target);
+    if (!el) throw new Error('html-load: target not found: ' + target);
+    return el;
+  }
+
+  function animateWrap(nodes, host) {
+    const wrap = document.createElement('div');
+    wrap.style.opacity = '0';
+    wrap.style.transform = 'translateY(10px)';
+    wrap.append(...nodes);
+    const dur = host.el.getAttribute('duration') || '0.5s';
+    requestAnimationFrame(() => {
+      wrap.style.transition = `opacity ${dur} ease, transform ${dur} ease`;
+      wrap.style.opacity = '1';
+      wrap.style.transform = 'translateY(0)';
+    });
+    return wrap;
+  }
+
+  function insert(host, target, swap, nodes) {
+    if (swap === 'none') return;
+    const content = host.el.hasAttribute('animate') ? [animateWrap(nodes, host)] : nodes;
+    switch (swap) {
+      case 'inner': target.replaceChildren(...content); break;
+      case 'before': case 'beforebegin': target.before(...content); break;
+      case 'after': case 'afterend': target.after(...content); break;
+      case 'afterbegin': target.prepend(...content); break;
+      case 'beforeend': target.append(...content); break;
+      case 'replace':
+      default: target.replaceWith(...content); break;
+    }
+  }
+
+  async function load(opts = {}) {
+    const src = opts.src ?? host.src;
+    if (!src) return;
+    const method = ((opts.method ?? host.method) || 'get').toLowerCase();
+    const target = (opts.target ?? host.target) || 'self';
+    const swap = (opts.swap ?? host.swap) || 'replace';
+    const formSel = (opts.form ?? host.form) || '';
+
+    host.el.removeAttribute('error');
+    host.el.setAttribute('loading', '');
+    const reqEv = new CustomEvent('html-load:request', { cancelable: true, detail: { src, method } });
+    if (!host.el.dispatchEvent(reqEv)) { host.el.removeAttribute('loading'); return; }
+
+    const data = collectData(formSel, opts.values);
+    const isSimple = method === 'get' || method === 'delete';
+    const init = { method, headers: { 'X-HTML-LOAD': 'true' } };
+    if (!isSimple) init.body = data;
+
+    try {
+      const res = await fetch(isSimple ? addQuery(src, data) : src, init);
+      const text = await res.text();
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const respEv = new CustomEvent('html-load:response', { cancelable: true, detail: { text, response: res } });
+      if (host.el.dispatchEvent(respEv)) {
+        const nodes = parseAndExecute(respEv.detail.text);
+        insert(host, resolveTarget(host, target), swap, nodes);
+        const swapEv = new CustomEvent('html-load:swap', { bubbles: true });
+        host.el.dispatchEvent(swapEv);
+        if (!host.isConnected) document.dispatchEvent(swapEv);
+      }
+    } catch (e) {
+      host.el.setAttribute('error', '');
+      host.el.dispatchEvent(new CustomEvent('html-load:error', { detail: { error: e } }));
+    } finally {
+      host.el.removeAttribute('loading');
+      host.el.dispatchEvent(new CustomEvent('html-load:done'));
+    }
+  }
+
+  host.load = load;
+  host.onpropchange = (name) => {
+    if (name === 'src') load();
+    if (name === 'every') startPolling();
+  };
+
+  let pollTimer = null;
+  function startPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    const ms = parseInt(host.every, 10);
+    if (!ms || ms < 100) return;
+    pollTimer = setInterval(() => load(), ms);
+  }
+
+  if (host.src) load();
+  startPolling();
+
+  host.signal.addEventListener('abort', () => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  });
+</script>
+</template>
+

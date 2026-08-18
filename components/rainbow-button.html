@@ -1,0 +1,63 @@
+<!--
+  @component rainbow-button
+  @category buttons
+  @description Button with animated rainbow gradient border and glow. CSS vars: --color-1..--color-5 for custom colors. Attribute: outline for inverted.
+  @usage <rainbow-button>Click</rainbow-button>
+  @impl CSS-only. Gradient border via background-clip + padding-box hack. Button::before for glow blur. 4s linear animation.
+-->
+<template shadowrootmode="open">
+<style>
+:host{display:inline-block}
+:host([hidden]){display:none}
+button{
+  position:relative;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.5rem;
+  padding:.65rem 1.25rem;
+  border-radius:.5rem;
+  font-size:.875rem;
+  font-weight:500;
+  white-space:nowrap;
+  border-bottom:3px solid transparent;
+  background:
+    linear-gradient(var(--btn-fill,#121213),var(--btn-fill,#121213)) padding-box,
+    linear-gradient(90deg,var(--color-1,#ff7170),var(--color-2,#ffe57f),var(--color-3,#6bcf7f),var(--color-4,#66b3ff),var(--color-5,#d96cff)) border-box;
+  background-size:200% 100%;
+  color:#fff;
+  transition:filter .2s;
+  animation:rainbow 4s linear infinite;
+}
+button::before{
+  content:'';
+  position:absolute;
+  bottom:-20%;
+  left:50%;
+  width:60%;
+  height:20%;
+  transform:translateX(-50%);
+  background:linear-gradient(90deg,var(--color-1,#ff7170),var(--color-2,#ffe57f),var(--color-3,#6bcf7f),var(--color-4,#66b3ff),var(--color-5,#d96cff));
+  background-size:200% 100%;
+  filter:blur(.75rem);
+  animation:rainbow 4s linear infinite;
+}
+button:hover{filter:brightness(1.15)}
+button:active{filter:brightness(.95)}
+:host([outline]) button{
+  --btn-fill:var(--bg-card,#fff);
+  color:var(--fg,#121213);
+  background:
+    linear-gradient(var(--btn-fill,var(--bg-card,#fff)),var(--btn-fill,var(--bg-card,#fff))) padding-box,
+    linear-gradient(90deg,var(--color-1,#ff7170),var(--color-2,#ffe57f),var(--color-3,#6bcf7f),var(--color-4,#66b3ff),var(--color-5,#d96cff)) border-box;
+  background-size:200% 100%;
+  border-bottom-color:transparent;
+}
+@keyframes rainbow{
+  0%{background-position:0% 50%}
+  100%{background-position:200% 50%}
+}
+</style>
+<button part="button"><slot></slot></button>
+</template>

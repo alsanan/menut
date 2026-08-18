@@ -1,0 +1,145 @@
+<!--
+  @component image-compare
+  @category 3d
+  @description Before/after image comparison slider. Two slotted <img> elements. Drag slider or scrub to reveal.
+  @usage <image-compare><img src="before.jpg"><img src="after.jpg"></image-compare>
+  @impl Cloned images into left/right wraps with clip-path. Hidden range input, CSS --value var, divider/handle overlay.
+-->
+<template shadowrootmode="open">
+  <style>
+    :host {
+      display: block;
+      --value: 50%;
+    }
+    .compare {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-card, 16px);
+      border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+      background: var(--bg-card, #fff);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .compare [img-wrap] {
+      position: absolute;
+      inset: 0;
+    }
+    .compare [img-wrap] img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .compare [img-wrap="left"] {
+      clip-path: polygon(0 0, var(--value) 0, var(--value) 100%, 0 100%);
+    }
+    .compare [img-wrap="right"] {
+      clip-path: polygon(100% 0, var(--value) 0, var(--value) 100%, 100% 100%);
+    }
+    .compare input[type="range"] {
+      position: absolute;
+      top: 0;
+      inset-inline-start: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      opacity: 0;
+      cursor: col-resize;
+      margin: 0;
+      padding: 0;
+    }
+    .compare input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 3px;
+      height: 100vh;
+      background: transparent;
+      border: none;
+      cursor: col-resize;
+    }
+    .compare input[type="range"]::-moz-range-thumb {
+      width: 3px;
+      height: 100vh;
+      background: transparent;
+      border: none;
+      cursor: col-resize;
+    }
+    .compare input[type="range"]::-webkit-slider-runnable-track {
+      height: 100%;
+      background: transparent;
+    }
+    .compare input[type="range"]::-moz-range-track {
+      height: 100%;
+      background: transparent;
+    }
+    .divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      inset-inline-start: var(--value);
+      width: 3px;
+      background: white;
+      transform: translateX(-50%);
+      z-index: 2;
+      pointer-events: none;
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+    }
+    .handle {
+      position: absolute;
+      top: 50%;
+      inset-inline-start: var(--value);
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+      z-index: 3;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .handle::before,
+    .handle::after {
+      content: '';
+      width: 0;
+      height: 0;
+      border-style: solid;
+    }
+    .handle::before {
+      border-width: 5px 6px 5px 0;
+      border-color: transparent var(--fg, oklch(0.15 0.01 90)) transparent transparent;
+    }
+    .handle::after {
+      border-width: 5px 0 5px 6px;
+      border-color: transparent transparent transparent var(--fg, oklch(0.15 0.01 90));
+    }
+  </style>
+  <div class="compare">
+    <div img-wrap="left"></div>
+    <div img-wrap="right"></div>
+    <input type="range" min="0" max="100" value="50">
+    <div class="divider"></div>
+    <div class="handle"></div>
+  </div>
+
+<script>
+const shadow = this.el.shadowRoot;
+const leftWrap = shadow.querySelector('[img-wrap="left"]');
+const rightWrap = shadow.querySelector('[img-wrap="right"]');
+const range = shadow.querySelector('input[type="range"]');
+const imgs = this.el.querySelectorAll('img');
+
+if (imgs[0]) leftWrap.appendChild(imgs[0].cloneNode(true));
+if (imgs[1]) rightWrap.appendChild(imgs[1].cloneNode(true));
+
+range.addEventListener('input', () => {
+  this.el.style.setProperty('--value', range.value + '%');
+});
+</script>
+</template>
+
+

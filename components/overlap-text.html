@@ -1,0 +1,45 @@
+<!--
+  @component overlap-text
+  @category text
+  @description Overlapping text effect. Splits text into characters with negative letter-spacing and z-index layering. Default front mode (first behind, last front). [back] reverses, [alter] alternates.
+  @usage <overlap-text>Front</overlap-text> — default. <overlap-text back>Back</overlap-text> — back mode. <overlap-text alter>Alter</overlap-text> — alternating.
+  @impl Splits text content into <span> per character. CSS: display:flex;letter-spacing:-0.3ch;z-index offset to avoid negative values in shadow DOM.
+-->
+<template shadowrootmode="open">
+<style>
+:host {
+  display: flex;
+  font-size:4rem;
+  font-weight:bold;
+  text-transform: uppercase;
+  letter-spacing: -0.3ch;
+  text-shadow: 1px 1px 0.25ch black;
+  color: white;
+}
+span {
+  display: inline;
+  min-width: 0.25ch;
+  position: relative;
+  z-index: var(--z);
+}
+</style>
+
+<script>
+const host = this
+const root = host.el.shadowRoot
+const style = root.querySelector('style')
+const text = host.el.textContent
+const n = text.length
+const back = host.el.hasAttribute('back')
+const alter = host.el.hasAttribute('alter')
+
+root.innerHTML = style.outerHTML + [...text].map((ch, i) => {
+  let z
+  if (alter) z = i % 2 === 0 ? i : n - 1 - i
+  else if (back) z = n - 1 - i
+  else z = i
+  return `<span style="--z:${z}">${ch}</span>`
+}).join('')
+</script>
+</template>
+

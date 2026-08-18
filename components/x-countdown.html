@@ -1,0 +1,55 @@
+<!--
+  @component x-countdown
+  @category data
+  @description Countdown to a target date/time, updating every second.
+  @usage <x-countdown until="2026-12-31T23:59:59"></x-countdown>
+  @impl Uses setInterval tied to this.signal for cleanup.
+-->
+<template shadowrootmode="open" until:string="" format:string="d:h:m:s" lang:string="en">
+<style>
+  :host { display: inline-block; font-variant-numeric: tabular-nums; }
+  .unit { display: inline-block; text-align: center; min-width: 2.2rem; }
+  .sep { opacity: .6; margin: 0 .1rem; }
+  .label { display: block; font-size: .6rem; text-transform: uppercase; opacity: .6; }
+</style>
+<span id="out" part="out"></span>
+
+<script>
+const host = this
+const out = host.el.shadowRoot.querySelector('#out')
+const UNITS = {
+  d: 24 * 60 * 60 * 1000,
+  h: 60 * 60 * 1000,
+  m: 60 * 1000,
+  s: 1000
+}
+function fmt(n) { return String(n).padStart(2, '0') }
+function padLang(u) {
+  const map = {
+    d: { en: 'days', es: 'días', ca: 'dies', fr: 'jours' },
+    h: { en: 'hrs', es: 'hrs', ca: 'hores', fr: 'hrs' },
+    m: { en: 'min', es: 'min', ca: 'min', fr: 'min' },
+    s: { en: 'sec', es: 'seg', ca: 'seg', fr: 'sec' }
+  }
+  return (map[u] && map[u][host.lang || 'en']) || u
+}
+function update() {
+  const target = new Date(host.until || Date.now() + 60000)
+  let ms = target.getTime() - Date.now()
+  if (Number.isNaN(ms)) { out.textContent = ''; return }
+  if (ms < 0) ms = 0
+  const parts = []
+  const order = (host.format || 'd:h:m:s').split(':').map(u => u.trim()).filter(u => UNITS[u])
+  for (const u of order) {
+    const v = Math.floor(ms / UNITS[u])
+    ms -= v * UNITS[u]
+    parts.push(`<span class="unit"><span class="value">${fmt(v)}</span><span class="label">${padLang(u)}</span></span>`)
+  }
+  out.innerHTML = parts.join('<span class="sep">:</span>')
+  if (target.getTime() - Date.now() <= 0) clearInterval(timer)
+}
+update()
+const timer = setInterval(update, 1000)
+host.signal.addEventListener('abort', () => clearInterval(timer), { once: true })
+</script>
+</template>

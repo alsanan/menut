@@ -1,0 +1,106 @@
+<!--
+  @component rolling-number
+  @category text
+  @description Animated number that rolls each digit up or down like a mechanical counter when the value changes.
+  @usage <rolling-number value="1234" duration="600"></rolling-number>
+  @impl Each digit is rendered as a vertical strip 0-9 inside a clipped column. CSS transition moves the strip to the target digit. Uses Intl.NumberFormat for separators/decimals.
+-->
+<template shadowrootmode="open" value:number="0" duration:number="600" lang:string="en">
+<style>
+  :host { display: inline-block; font-variant-numeric: tabular-nums; }
+  #num { display: inline-flex; align-items: center; height: 1em; line-height: 1; }
+  .digit {
+    position: relative;
+    display: inline-block;
+    width: 0.6em;
+    height: 1em;
+    overflow: hidden;
+    text-align: center;
+  }
+  .strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--duration, 600ms) cubic-bezier(.2, .8, .2, 1);
+    will-change: transform;
+  }
+  .strip span { display: block; height: 1em; line-height: 1; }
+  .static { display: inline-block; padding: 0 .05em; }
+</style>
+<span id="num"></span>
+
+<script>
+const host = this
+const num = host.el.shadowRoot.querySelector('#num')
+const duration = host.duration || 600
+host.el.style.setProperty('--duration', duration + 'ms')
+
+function format(n) {
+  return new Intl.NumberFormat(host.lang || 'en').format(n)
+}
+
+function setDigit(strip, d) {
+  strip.style.transform = 'translateY(-' + d + 'em)'
+}
+
+let currentValue = host.value || 0
+
+function render(value) {
+  const str = format(value)
+  const children = []
+  for (const ch of str) {
+    if (/\d/.test(ch)) children.push({ type: 'digit', char: ch })
+    else children.push({ type: 'static', char: ch })
+  }
+
+  while (num.childNodes.length > children.length) {
+    num.lastChild.remove()
+  }
+
+  children.forEach((item, i) => {
+    let node = num.childNodes[i]
+    if (item.type === 'static') {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE || node.className !== 'static' || node.textContent !== item.char) {
+        const span = document.createElement('span')
+        span.className = 'static'
+        span.textContent = item.char
+        if (node) num.replaceChild(span, node)
+        else num.appendChild(span)
+      }
+    } else {
+      let wrap, strip
+      if (!node || node.nodeType !== Node.ELEMENT_NODE || !node.classList.contains('digit')) {
+        wrap = document.createElement('span')
+        wrap.className = 'digit'
+        strip = document.createElement('span')
+        strip.className = 'strip'
+        for (let d = 0; d <= 9; d++) {
+          const s = document.createElement('span')
+          s.textContent = d
+          strip.appendChild(s)
+        }
+        wrap.appendChild(strip)
+        if (node) num.replaceChild(wrap, node)
+        else num.appendChild(wrap)
+      } else {
+        wrap = node
+        strip = wrap.querySelector('.strip')
+      }
+      setDigit(strip, parseInt(item.char, 10))
+    }
+  })
+}
+
+render(currentValue)
+
+host.onpropchange = (name, v) => {
+  if (name === 'value') {
+    currentValue = v || 0
+    render(currentValue)
+  }
+}
+</script>
+</template>

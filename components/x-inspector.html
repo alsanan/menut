@@ -1,0 +1,103 @@
+<!--
+  @component x-inspector
+  @category data
+  @description Read-only tree inspector for any JSON value. Useful for debugging reactive state or API responses.
+  @usage <x-inspector value='{"a":1,"b":[true,false]}'></x-inspector>
+  @impl Recursive tree renderer with expand/collapse. Click arrows to toggle branches.
+-->
+<template shadowrootmode="open" value:object="{}">
+<style>
+  :host { display: block; font-size: 0.85rem; font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
+  .node { padding-left: 1rem; }
+  .node.root { padding-left: 0; }
+  .row { display: flex; align-items: baseline; gap: .35rem; padding: .08rem 0; cursor: default; }
+  .row:hover { background: color-mix(in oklab, var(--fg-muted, oklch(0.55 0.02 90)) 6%, transparent); }
+  .toggle { width: .9rem; text-align: center; cursor: pointer; color: var(--fg-muted, oklch(0.55 0.02 90)); user-select: none; }
+  .toggle:empty { cursor: default; }
+  .key { color: var(--accent, oklch(0.55 0.15 145)); font-weight: 600; }
+  .type { color: var(--fg-muted, oklch(0.55 0.02 90)); font-size: .7rem; text-transform: uppercase; }
+  .val { color: var(--fg, oklch(0.15 0.01 90)); }
+  .val.string { color: oklch(0.55 0.15 145); }
+  .val.number { color: oklch(0.55 0.15 220); }
+  .val.boolean { color: oklch(0.55 0.15 30); }
+  .val.null { color: var(--fg-muted, oklch(0.55 0.02 90)); font-style: italic; }
+  .preview { color: var(--fg-muted, oklch(0.55 0.02 90)); }
+  .children { display: none; }
+  .children.open { display: block; }
+</style>
+<div id="tree"></div>
+
+<script>
+const host = this
+const tree = host.el.shadowRoot.querySelector('#tree')
+const TYPE = v => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v
+function preview(v) {
+  if (v === null) return 'null'
+  if (Array.isArray(v)) return `[${v.length}]`
+  if (typeof v === 'object') return `{${Object.keys(v).length}}`
+  return JSON.stringify(v)
+}
+function renderValue(v) {
+  const t = TYPE(v)
+  const span = document.createElement('span')
+  span.className = 'val ' + t
+  span.textContent = t === 'string' ? JSON.stringify(v) : String(v)
+  return span
+}
+function build(k, v, depth) {
+  const t = TYPE(v)
+  const isContainer = t === 'object' || t === 'array'
+  const node = document.createElement('div')
+  node.className = 'node' + (depth === 0 ? ' root' : '')
+  const row = document.createElement('div')
+  row.className = 'row'
+  const toggle = document.createElement('span')
+  toggle.className = 'toggle'
+  if (isContainer) {
+    toggle.textContent = '▾'
+    toggle.addEventListener('click', () => {
+      const open = children.classList.toggle('open')
+      toggle.textContent = open ? '▾' : '▸'
+    })
+  }
+  row.appendChild(toggle)
+  if (k !== '') {
+    const key = document.createElement('span')
+    key.className = 'key'
+    key.textContent = k
+    row.appendChild(key)
+  }
+  const type = document.createElement('span')
+  type.className = 'type'
+  type.textContent = t
+  row.appendChild(type)
+  if (isContainer) {
+    const pre = document.createElement('span')
+    pre.className = 'preview'
+    pre.textContent = ' ' + preview(v)
+    row.appendChild(pre)
+  } else {
+    row.appendChild(document.createTextNode(' '))
+    row.appendChild(renderValue(v))
+  }
+  node.appendChild(row)
+  const children = document.createElement('div')
+  children.className = 'children open'
+  if (isContainer) {
+    if (t === 'array') {
+      v.forEach((child, i) => children.appendChild(build(String(i), child, depth + 1)))
+    } else {
+      for (const key of Object.keys(v)) children.appendChild(build(key, v[key], depth + 1))
+    }
+  }
+  node.appendChild(children)
+  return node
+}
+function render() {
+  tree.innerHTML = ''
+  tree.appendChild(build('', host.value || {}, 0))
+}
+render()
+host.onpropchange = () => render()
+</script>
+</template>

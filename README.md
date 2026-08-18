@@ -1,5 +1,8 @@
 # Menut
 
+[![Live showcase](https://img.shields.io/badge/showcase-live-blue)](https://alsanan.github.io/menut/)
+[![Contributing](https://img.shields.io/badge/contributions-welcome-green)](CONTRIBUTING.md)
+
 Menut is an HTML-first reactive micro-framework, in a single file with no
 dependencies, sharing the philosophy of [Fixi](https://github.com/bigskysoftware/fixi).
 Its size target is around 600 lines.
@@ -67,9 +70,21 @@ is available right after. There is no `window.Menut`.
 
 ## Documentation
 
+- [Live showcase](https://alsanan.github.io/menut/) — interactive component gallery
 - [API & directives](docs/api.md)
-- [Component gallery](docs/components.md)
+- [Component gallery](docs/components.md) — auto-generated reference
 - [Design specification](docs/spec.md)
+- [Contributing](CONTRIBUTING.md) — how to propose new components
+
+## Component library
+
+Menut ships with a growing library of single-file components in `components/`.
+Browse them in the [live showcase](https://alsanan.github.io/menut/examples/components.html)
+or read the [auto-generated reference](docs/components.md).
+
+Categories: `forms` · `data` · `text` · `buttons` · `layout` · `3d` · `content`
+
+To propose a new component, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Examples
 

@@ -1,0 +1,358 @@
+<!--
+  @component server-action
+  @category content
+  @description Push-based action engine: executes a command element emitted by the backend. Dispatches by `action` to a handler registry, then removes itself. Transport-agnostic (SSE, WebSocket, or injected fragment). Place `<server-action init>` once in the initial HTML to define the component eagerly at boot so server-pushed instances run with no loading delay. HTML payload (children) is injected for content actions; payload scripts re-execute in main document scope.
+  @usage <server-action init>  |  <server-action action="append" target="#list"><li>New</li></server-action>  |  <server-action action="confirm" url="/api/confirm" id="cf-1" title="Delete?" confirm-label="Delete"></server-action>  |  <server-action action="ask" url="/api/ask" id="q-1" title="Pick one"><option value="a">Option A</option></server-action>
+  @attr init – eager-definition placeholder: defines the component at boot, performs no action, self-removes
+  @attr action – handler name to dispatch; omitted/unknown = no-op self-remove
+  @attr target – selector of the element to act on (required for placement/mutation actions)
+  @attr class,name,value,url,delay,force,behavior,block,text,title,body,message,icon,pattern,href,options,id,confirm-label,cancel-label,msg,color,timeout – action-specific parameters
+  @impl Registers built-in handlers plus a window.serverActions registry for custom actions. Per element: dispatches cancelable `server-action:before`, runs the handler with ctx { host, action, target, nodes, attrs, params }, then self-removes (unless handler returns { keep:true }). Emits `server-action:done`/`server-action:error` on document (element is gone). Round-trip actions (confirm/ask) open a native <dialog> with a <form> and POST the answer back to `url` with correlation `id` (fetch-enhanced, native form fallback); ESC/backdrop/cancel report cancelled/confirmed=false so the backend never waits on a reply. Custom: serverActions.register(name, ctx => {}) / unregister(name).
+-->
+<template shadowrootmode="open">
+  <style>:host{display:none}</style>
+
+<script>
+const host = this
+
+  // ---- shared registry (module-free; loader runs scripts via new Function) ----
+  const g = window.__serverActionRegistry || (window.__serverActionRegistry = { handlers: {} })
+  const register = (name, fn) => { g.handlers[name] = fn }
+  const unregister = (name) => { delete g.handlers[name] }
+  window.serverActions = {
+    register,
+    unregister,
+    has: name => !!g.handlers[name]
+  }
+
+  const emit = (type, detail) => document.dispatchEvent(new CustomEvent('server-action:' + type, { detail }))
+
+  function resolveTarget(host) {
+    const sel = host.el.getAttribute('target')
+    if (!sel) return null
+    return document.querySelector(sel) || null
+  }
+
+  function parseAndExecute(host) {
+    const frag = document.createDocumentFragment()
+    frag.append(...[...host.el.children])
+    frag.querySelectorAll('script').forEach(s => {
+      const ns = document.createElement('script')
+      for (const a of s.attributes) ns.setAttribute(a.name, a.value)
+      ns.textContent = s.textContent
+      s.replaceWith(ns)
+    })
+    return [...frag.childNodes]
+  }
+
+  function attrsToObj(host) {
+    const out = {}
+    for (const a of host.el.attributes) {
+      if (a.name === 'action' || a.name === 'target' || a.name === 'init') continue
+      out[a.name] = a.value
+    }
+    return out
+  }
+
+  function paramsToObj(attrs) {
+    const out = {}
+    for (const k in attrs) {
+      let v = attrs[k]
+      if (v === 'true') v = true
+      else if (v === 'false') v = false
+      else if (v !== '' && !isNaN(Number(v))) v = Number(v)
+      out[k] = v
+    }
+    return out
+  }
+
+  // ---- small UI helpers ----
+  function el(tag, text) { const e = document.createElement(tag); if (text != null) e.textContent = text; return e }
+
+  function showToast(text, opts = {}) {
+    if (!text) return
+    const d = document.createElement('dialog')
+    d.setAttribute('toast', '')
+    d.style.position = 'fixed'
+    d.style.borderInlineStart = '4px solid ' + (opts.color || 'var(--fg-muted)')
+    d.textContent = text
+    d.addEventListener('click', () => { if (d.isConnected) { d.close(); d.remove() } })
+    document.body.appendChild(d)
+    d.show()
+    const t = opts.timeout ?? 6000
+    if (t > 0) setTimeout(() => { if (d.isConnected) { d.close(); d.remove() } }, t)
+  }
+
+  function fallbackCopy(text, onOk) {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try { document.execCommand('copy'); onOk() } catch (e) { /* nothing */ }
+    ta.remove()
+  }
+
+  function dialogShell(attrs) {
+    const d = document.createElement('dialog')
+    d.setAttribute('server-action', '')
+    const form = document.createElement('form')
+    form.method = 'post'
+    form.action = attrs.url
+    const hid = document.createElement('input')
+    hid.type = 'hidden'
+    hid.name = 'id'
+    hid.value = attrs.id || ''
+    form.appendChild(hid)
+    d.appendChild(form)
+    return d
+  }
+
+  function dialogButton(form, name, value, label, primary) {
+    const b = document.createElement('button')
+    b.type = 'submit'
+    b.formMethod = 'dialog'
+    b.name = name
+    b.value = value
+    b.textContent = label
+    if (primary) b.setAttribute('data-primary', '')
+    form.appendChild(b)
+    return b
+  }
+
+  function collectOptions(ctx) {
+    const out = []
+    for (const node of ctx.nodes) {
+      if (node.nodeType !== 1) continue
+      const label = (node.getAttribute('label') || node.getAttribute('text') || node.textContent || '').trim()
+      const value = (node.getAttribute('value') || label).trim()
+      if (label) out.push({ label, value })
+    }
+    if (out.length) return out
+    const raw = ctx.attrs.options
+    if (raw) {
+      return raw.split(',').map(s => {
+        s = s.trim()
+        if (!s) return null
+        const i = s.indexOf('=')
+        return i > -1 ? { label: s.slice(0, i).trim(), value: s.slice(i + 1).trim() } : { label: s, value: s }
+      }).filter(Boolean)
+    }
+    return out
+  }
+
+  // Attach a dialog: intercept submit (fetch POST + close), report cancel on ESC/backdrop.
+  function wireDialog(d, url, toPayload, cancelPayload) {
+    let reported = false
+    const report = payload => {
+      if (reported) return
+      reported = true
+      fetch(url, { method: 'post', headers: { 'X-SERVER-ACTION': 'true' }, body: new URLSearchParams(payload) }).catch(() => {})
+    }
+    const close = () => { if (d.isConnected) { d.close(); d.remove() } }
+    const form = d.querySelector('form')
+    form.addEventListener('submit', e => {
+      e.preventDefault()
+      report(toPayload(new FormData(form)))
+      close()
+    })
+    d.addEventListener('cancel', e => {       // ESC
+      e.preventDefault()
+      report(cancelPayload)
+      close()
+    })
+    d.addEventListener('click', e => {        // backdrop
+      if (e.target === d) {
+        report(cancelPayload)
+        close()
+      }
+    })
+    document.body.appendChild(d)
+    d.showModal()
+    return { report, close }
+  }
+
+  // ---- built-in handlers (register once; don't clobber existing custom ones) ----
+  if (!g.builtins) {
+    g.builtins = true
+    const need = (name, fn) => { if (!g.handlers[name]) g.handlers[name] = fn }
+    const actOn = (ctx, op) => { if (!ctx.target) throw new Error('server-action: no target for "' + ctx.action + '"'); op(ctx) }
+
+    // placement
+    need('inner',   ctx => actOn(ctx, c => c.target.replaceChildren(...c.nodes)))
+    need('append',  ctx => actOn(ctx, c => c.target.append(...c.nodes)))
+    need('prepend', ctx => actOn(ctx, c => c.target.prepend(...c.nodes)))
+    need('before',  ctx => actOn(ctx, c => c.target.before(...c.nodes)))
+    need('after',   ctx => actOn(ctx, c => c.target.after(...c.nodes)))
+    need('replace', ctx => actOn(ctx, c => c.target.replaceWith(...c.nodes)))
+    need('portal',  ctx => document.body.append(...ctx.nodes))
+
+    // mutation
+    need('remove',       ctx => { if (ctx.target) ctx.target.remove() })
+    need('toggle-class', ctx => { if (ctx.target) ctx.target.classList.toggle(ctx.attrs.class, ctx.params.force) })
+    need('add-class',    ctx => { if (ctx.target) ctx.target.classList.add(ctx.attrs.class) })
+    need('remove-class', ctx => { if (ctx.target) ctx.target.classList.remove(ctx.attrs.class) })
+    need('set-attr',     ctx => { if (ctx.target) ctx.target.setAttribute(ctx.attrs.name, ctx.attrs.value || '') })
+    need('remove-attr',  ctx => { if (ctx.target) ctx.target.removeAttribute(ctx.attrs.name) })
+    need('set-prop',     ctx => { if (ctx.target) ctx.target[ctx.attrs.name] = ctx.attrs.value })
+    need('set-css',      ctx => { if (ctx.target) ctx.target.style.setProperty(ctx.attrs.name, ctx.attrs.value) })
+    need('flash', ctx => {
+      if (!ctx.target) return
+      const t = ctx.target
+      t.style.background = 'var(--yellow-bg)'
+      requestAnimationFrame(() => {
+        t.style.transition = 'background 1s ease'
+        requestAnimationFrame(() => { t.style.background = 'transparent' })
+      })
+    })
+
+    // navigation / ux
+    need('redirect', ctx => {
+      const delay = (ctx.params.delay || 0) * 1000
+      setTimeout(() => { location.href = ctx.attrs.url }, delay)
+      return { keep: true }
+    })
+    need('reload',    ctx => { location.reload() })
+    need('scroll-to', ctx => { if (ctx.target) ctx.target.scrollIntoView({ behavior: ctx.attrs.behavior || 'smooth', block: ctx.attrs.block || 'start' }) })
+    need('focus',     ctx => { if (ctx.target) ctx.target.focus({ preventScroll: ctx.attrs.preventScroll === 'true' }) })
+    need('toast',     ctx => showToast(ctx.attrs.text || ctx.attrs.message || '', { color: ctx.attrs.color, timeout: ctx.params.timeout }))
+
+    // document / browser
+    need('title',    ctx => { if (ctx.attrs.text) document.title = ctx.attrs.text })
+    need('favicon',  ctx => {
+      if (!ctx.attrs.href) return
+      let link = document.querySelector('link[rel~="icon"]')
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
+      link.href = ctx.attrs.href
+    })
+    need('print',    ctx => { window.print() })
+    need('download', ctx => {
+      if (!ctx.attrs.url) return
+      const a = document.createElement('a')
+      a.href = ctx.attrs.url
+      if (ctx.attrs.name) a.download = ctx.attrs.name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    })
+    need('notification', ctx => {
+      const title = ctx.attrs.title || ctx.attrs.text || ''
+      const body = ctx.attrs.body || ctx.attrs.message || ''
+      if (!('Notification' in window)) return showToast(title, {})
+      const show = () => { try { new Notification(title, { body, icon: ctx.attrs.icon }) } catch (e) { showToast(title, {}) } }
+      if (Notification.permission === 'granted') show()
+      else if (Notification.permission === 'denied') showToast(title, {})
+      else Notification.requestPermission().then(p => p === 'granted' ? show() : showToast(title, {}))
+    })
+    need('vibrate', ctx => {
+      if (!navigator.vibrate) return
+      const raw = ctx.attrs.pattern
+      navigator.vibrate(raw ? String(raw).split(',').map(Number) : 200)
+    })
+    need('fullscreen', ctx => {
+      if (ctx.params.force === false) {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+        return
+      }
+      const t = ctx.target || document.documentElement
+      if (t.requestFullscreen) t.requestFullscreen().catch(() => {})
+    })
+    need('history', ctx => {
+      if (!ctx.attrs.url) return
+      if (ctx.params.replace) history.replaceState({}, '', ctx.attrs.url)
+      else history.pushState({}, '', ctx.attrs.url)
+      if (ctx.attrs.title) document.title = ctx.attrs.title
+    })
+    need('copy', ctx => {
+      const text = ctx.attrs.text || ctx.attrs.value || (ctx.target ? ctx.target.textContent : '')
+      if (!text) return
+      const msg = ctx.attrs.msg || ctx.attrs.message
+      const onOk = () => { if (msg) showToast(msg, {}) }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onOk).catch(() => fallbackCopy(text, onOk))
+      } else {
+        fallbackCopy(text, onOk)
+      }
+    })
+
+    // round-trip confirm (yes/no) and ask (option list) — reply POSTed to url with id
+    need('confirm', ctx => {
+      const a = ctx.attrs
+      if (!a.url) throw new Error('server-action: confirm requires url')
+      const d = dialogShell(a)
+      const form = d.querySelector('form')
+      form.appendChild(el('h3', a.title || a.text || 'Confirm'))
+      if (a.body || a.message) form.appendChild(el('p', a.body || a.message))
+      dialogButton(form, 'confirmed', 'false', a.cancelLabel || 'Cancel')
+      dialogButton(form, 'confirmed', 'true', a.confirmLabel || 'Confirm', true)
+      wireDialog(d, a.url,
+        fd => ({ id: fd.get('id'), confirmed: fd.get('confirmed') === 'true' }),
+        { id: a.id || '', confirmed: false })
+    })
+    need('ask', ctx => {
+      const a = ctx.attrs
+      if (!a.url) throw new Error('server-action: ask requires url')
+      const options = collectOptions(ctx)
+      if (!options.length) throw new Error('server-action: ask requires options (children or options attr)')
+      const d = dialogShell(a)
+      const form = d.querySelector('form')
+      form.appendChild(el('h3', a.title || a.text || 'Choose an option'))
+      if (a.body || a.message) form.appendChild(el('p', a.body || a.message))
+      for (const o of options) dialogButton(form, 'value', o.value, o.label)
+      if (a.showCancel !== 'false') {
+        const cb = document.createElement('button')
+        cb.type = 'button'
+        cb.textContent = a.cancelLabel || 'Cancel'
+        form.appendChild(cb)
+        const { report, close } = wireDialog(d, a.url,
+          fd => ({ id: fd.get('id'), value: fd.get('value') }),
+          { id: a.id || '', cancelled: true })
+        cb.addEventListener('click', () => { report({ id: a.id || '', cancelled: true }); close() })
+      } else {
+        wireDialog(d, a.url,
+          fd => ({ id: fd.get('id'), value: fd.get('value') }),
+          { id: a.id || '', cancelled: true })
+      }
+    })
+  }
+
+  // ---- executor (runs on every element appearance) ----
+  ;(async () => {
+    if (host.el.hasAttribute('init')) { host.el.remove(); return }
+
+    const action = host.el.getAttribute('action') || ''
+    if (!action) { host.el.remove(); return }
+
+    const handler = g.handlers[action]
+    if (!handler) {
+      host.el.setAttribute('error', '')
+      emit('error', { host, action, error: new Error('server-action: unknown action "' + action + '"') })
+      host.el.remove()
+      return
+    }
+
+    const before = new CustomEvent('server-action:before', { cancelable: true, bubbles: true, detail: { host, action } })
+    if (!host.el.dispatchEvent(before)) { host.el.remove(); return }
+
+    const nodes = parseAndExecute(host)
+    const attrs = attrsToObj(host)
+    const params = paramsToObj(attrs)
+    const ctx = {
+      host, action, nodes, attrs, params,
+      get target() { return host._targetCache || (host._targetCache = resolveTarget(host)) }
+    }
+
+    try {
+      const res = await handler(ctx)
+      if (!(res && res.keep)) host.el.remove()
+      emit('done', { host, action, target: ctx.target })
+    } catch (e) {
+      host.el.setAttribute('error', '')
+      emit('error', { host, action, error: e })
+      host.el.remove()
+    }
+  })()
+</script>
+</template>
+

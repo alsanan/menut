@@ -1,0 +1,168 @@
+<!--
+  @component fullscreen-menu
+  @category layout
+  @description Fixed-position hamburger menu that expands to fullscreen overlay. Slotted <a> links. Animated circle expansion.
+  @usage <fullscreen-menu><a href="#">Link</a></fullscreen-menu>
+  @impl Native <details>/<summary> with CSS transitions. SVG circle scales up as backdrop. Menu items stagger fade/slide.
+-->
+<template shadowrootmode="open">
+<style>
+
+:host{
+    position:fixed;
+    top:.5em;
+    inset-inline-end:.5em;
+    z-index:1000;
+    display:block;
+}
+
+details{ position:relative; }
+
+summary{ list-style:none; }
+
+summary::-webkit-details-marker{ display:none; }
+
+/* ---------- botón ---------- */
+
+.toggle{
+    position:relative;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:var(--bg-card,#fff);
+    box-shadow:var(--shadow-pop,0 8px 30px rgb(0 0 0 /.08));
+    cursor:pointer;
+    z-index:6;
+}
+
+.bar{
+    position:absolute;
+    inset-inline-start:50%;
+    top:50%;
+    width:16px;
+    height:3px;
+    background:var(--fg,#222);
+    border-radius:2px;
+    transition:transform .3s;
+}
+
+.bar:first-child{
+    transform:
+        translate(-50%,-50%)
+        rotate(-90deg);
+}
+
+.bar:last-child{
+    transform:
+        translate(-50%,-50%)
+        rotate(-180deg);
+}
+
+details[open] .bar:first-child{
+    transform:
+        translate(-50%,-50%)
+        rotate(-45deg);
+}
+
+details[open] .bar:last-child{
+    transform:
+        translate(-50%,-50%)
+        rotate(-135deg);
+}
+
+/* ---------- círculo ---------- */
+
+.backbtn{
+    position:fixed;
+    top:.5em;
+    inset-inline-end:.5em;
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    background:var(--fg-muted,#aaa);
+    z-index:1;
+    pointer-events:none;
+    will-change:transform;
+    transform-origin:center center;
+    transform:
+        translate(0,0)
+        scale(.8);
+    transition:
+        transform .3s cubic-bezier(.65,0,.35,1);
+}
+
+details[open] .backbtn{
+    transform:
+        translate(-100%,-100%)
+        scale(150);
+}
+
+/* ---------- menú ---------- */
+
+.menu{
+    position:fixed;
+    inset:0;
+    display:flex;
+    flex-direction: column;
+    justify-content:center;
+    align-items:center;
+    visibility:hidden;
+    pointer-events:none;
+    transform:
+        translate(60%,-40%)
+        scale(.2);
+    transition:
+        transform .5s cubic-bezier(.65,0,.35,1);
+    z-index:5;
+}
+
+details[open] .menu{
+    visibility:visible;
+    pointer-events:auto;
+    transform:
+        translate(0,0)
+        scale(1);
+}
+
+/* ---------- enlaces ---------- */
+
+::slotted(a){
+    display:block;
+    padding:.5em 1em;
+    font-size:2rem;
+    font-weight:300;
+    text-decoration:none;
+    color:var(--bg-card,#fff);
+    opacity:.4;
+    transform:translateY(30px);
+    transition:
+        transform .5s,
+        opacity .5s;
+}
+
+details[open] ::slotted(a){
+    opacity:1;
+    transform:translateY(0);
+}
+
+::slotted(a:hover){ opacity:.7; }
+
+</style>
+
+<details>
+
+    <summary>
+        <div class="backbtn"></div>
+        <div class="toggle">
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+    </summary>
+
+    <nav class="menu">
+        <slot></slot>
+    </nav>
+
+</details>
+
+</template>

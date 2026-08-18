@@ -1,0 +1,164 @@
+<!--
+  @component scroll-select
+  @category forms
+  @description Scroll-to-select list. Scroll-snap centered items. Keyboard arrows up/down, focusable, form-associated.
+  @usage <scroll-select name="city"><div class="item" value="VLC">Valencia</div><div class="item" value="MAN">Manchester</div></scroll-select>
+  @impl IntersectionObserver detects centered item, sets [selected] attribute. Keyboard arrows scroll to adjacent items. setFormValue on selection change. Top/bottom spacers ensure all items reachable.
+-->
+<template shadowrootmode="open">
+<style>
+  :host {
+    --item-height: 60px;
+    --item-gap: 6px;
+    display: block;
+    contain: layout;
+  }
+  .container {
+    --visible: 7;
+    --h: calc(var(--item-height) * var(--visible) + var(--item-gap) * (var(--visible) - 1));
+    height: var(--h);
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    overscroll-behavior-y: none;
+    scrollbar-width: thin;
+    outline: none;
+    border-radius: var(--radius, 0.7rem);
+    background: var(--bg, oklch(0.97 0.005 90));
+    display: flex;
+    flex-direction: column;
+    gap: var(--item-gap);
+    --center-top: calc((var(--h) - var(--item-height)) / 2);
+    --center-bot: calc((var(--h) + var(--item-height)) / 2);
+    background:
+      linear-gradient(var(--bg, oklch(0.97 0.005 90)), var(--bg, oklch(0.97 0.005 90)) var(--center-top),
+      color-mix(in oklab, var(--accent, oklch(0.55 0.15 145)) 12%, transparent) var(--center-top),
+      color-mix(in oklab, var(--accent, oklch(0.55 0.15 145)) 12%, transparent) var(--center-bot),
+      var(--bg, oklch(0.97 0.005 90)) var(--center-bot));
+  }
+  .container:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--accent, oklch(0.55 0.15 145));
+  }
+  .spacer {
+    flex: 0 0 calc((var(--h) - var(--item-height)) / 2);
+    pointer-events: none;
+  }
+  ::slotted(.item) {
+    flex: 0 0 var(--item-height);
+    scroll-snap-align: center;
+    margin-inline: 7% !important;
+    padding-inline: 2rem !important;
+    padding-block: 0 !important;
+    box-sizing: border-box;
+    border-radius: var(--radius, 0.7rem);
+    background: var(--bg-card, #fff);
+    color: var(--fg, oklch(0.15 0.01 90));
+    border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+    box-shadow: var(--shadow-card, 0 1px 3px oklch(0 0 0 / 0.06));
+    font: 500 1rem/var(--item-height) system-ui;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background .15s, border-color .15s, box-shadow .15s, transform .15s;
+  }
+  ::slotted(.item[selected]) {
+    background: var(--accent, oklch(0.55 0.15 145));
+    color: #fff;
+    border-color: var(--accent, oklch(0.55 0.15 145));
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent, oklch(0.55 0.15 145)) 40%, transparent);
+    transform: scale(1.02);
+  }
+  ::slotted(.item) .code {
+    opacity: .6;
+    font-size: .85em;
+    font-weight: 400;
+  }
+  ::slotted(.item[selected]) .code {
+    opacity: .8;
+  }
+</style>
+<div class="container" part="container" tabindex="-1">
+  <div class="spacer"></div>
+  <slot></slot>
+  <div class="spacer"></div>
+</div>
+
+<script>
+const host = this
+  const root = host.el.shadowRoot
+  const container = root.querySelector('.container')
+
+  function items() { return [...host.el.querySelectorAll(':scope > .item')] }
+
+  function select(el) {
+    if (!el || el.hasAttribute('selected')) return
+    items().forEach(i => i.removeAttribute('selected'))
+    el.setAttribute('selected', '')
+    const val = el.getAttribute('value') || el.textContent.trim()
+    host.el._internals.setFormValue(val)
+    host.el.dispatchEvent(new CustomEvent('change', { detail: { value: val, label: el.textContent.trim() } }))
+  }
+
+  function pick() {
+    const cr = container.getBoundingClientRect()
+    const cy = cr.top + cr.height / 2
+    let best = null, bestD = Infinity
+    items().forEach(i => {
+      const r = i.getBoundingClientRect()
+      const d = Math.abs(r.top + r.height / 2 - cy)
+      if (d < bestD) { bestD = d; best = i }
+    })
+    return best
+  }
+
+  let ticking
+  container.addEventListener('scroll', () => {
+    if (ticking) return
+    ticking = requestAnimationFrame(() => {
+      ticking = 0
+      select(pick())
+    })
+  })
+
+  function init() {
+    const all = items()
+    container.style.setProperty('--visible',all?.length)
+    const active = all.find(i => i.hasAttribute('selected'))
+    if (active) active.scrollIntoView({ block: 'center' })
+    else if (all.length) select(all[0])
+  }
+
+  function center(el) {
+    const cr = container.getBoundingClientRect()
+    const er = el.getBoundingClientRect()
+    const top = container.scrollTop + (er.top - cr.top) - (cr.height / 2 - er.height / 2)
+    container.scrollTo({ top, behavior: 'smooth' })
+  }
+
+  host.el.setAttribute('tabindex', '0')
+  host.el.addEventListener('keydown', e => {
+    const all = items()
+    const idx = all.findIndex(i => i.hasAttribute('selected'))
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      center(all[Math.min(idx + 1, all.length - 1)])
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      center(all[Math.max(idx - 1, 0)])
+    }
+  })
+  host.el.addEventListener('focus', () => container.focus())
+
+  host.el.addEventListener('click', e => {
+    const item = e.target.closest('.item')
+    if (item) {
+      center(item)
+      select(item)
+    }
+  })
+
+  init()
+</script>
+</template>
+

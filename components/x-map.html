@@ -1,0 +1,125 @@
+<!--
+  @component x-map
+  @category 3d
+  @description Leaflet map component. Attributes: lat, lng, zoom, marker. Loads Leaflet from CDN dynamically.
+  @usage <x-map lat="39.57" lng="-0.27" zoom="13" marker></x-map>
+  @impl Async script loads Leaflet CSS/JS, creates map with Carto tiles, optionally adds marker. ResizeObserver for responsiveness.
+-->
+<template shadowrootmode="open">
+
+<style>
+
+#map{
+    position:absolute;
+    inset:0;
+}
+:host{
+    display:block;
+    position:relative;
+    height:20rem;
+}
+.leaflet-control-attribution { font-size:9px; }
+</style>
+
+<div id="map"></div>
+
+
+<script>
+const host=this;
+const root=host.el.shadowRoot;
+const mapDiv=root.querySelector("#map");
+
+function loadCSS(url){
+    return new Promise(resolve=>{
+        if(document.querySelector(`link[href="${url}"]`)){
+            resolve();
+            return;
+        }
+        const link=document.createElement("link");
+        link.rel="stylesheet";
+        link.href=url;
+        link.onload=resolve;
+        document.head.appendChild(link);
+    });
+}
+
+function loadScript(url){
+    return new Promise(resolve=>{
+        if(window.L){
+            resolve();
+            return;
+        }
+        const script=document.createElement("script");
+        script.src=url;
+        script.onload=resolve;
+        document.head.appendChild(script);
+    });
+}
+
+async function loadLeafletCSS(){
+    if(root.querySelector("#leaflet-css")) return;
+    const link=document.createElement("link");
+    link.id="leaflet-css";
+    link.rel="stylesheet";
+    link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    root.appendChild(link);
+    await new Promise(resolve=>{
+        link.onload=resolve;
+    });
+}
+
+(async()=>{
+
+    await loadLeafletCSS();
+    await loadScript( "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" );
+    const lat=Number(host.el.getAttribute("lat")||39.5699);
+    const lng=Number(host.el.getAttribute("lng")||-0.2763);
+    const zoom=Number(host.el.getAttribute("zoom")||13);
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+   
+    const map=L.map(mapDiv);
+    map.setView(
+        [lat,lng],
+        zoom
+    );
+    L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        {
+            subdomains:"abcd",
+            maxZoom:20,
+            attribution:'<a href="https://www.openstreetmap.org/">OSM</a> | <a href="https://carto.com">Carto</a>'
+        }
+    ).addTo(map);
+    map.on("load",()=>{
+        map.invalidateSize(true);
+    });    
+    if(host.el.hasAttribute("marker")){
+        const markerIcon = L.icon({
+            iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+            iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+            iconSize: [25,41],
+            iconAnchor: [12,41],
+            popupAnchor: [1,-34],
+            shadowSize: [41,41]
+        });
+        L.marker([lat,lng], {
+    icon: markerIcon
+})
+            .addTo(map);
+    }
+
+    requestAnimationFrame(()=>{
+        map.invalidateSize(true);
+    });
+
+    const ro=new ResizeObserver(()=>{
+        map.invalidateSize(true);
+    });
+    ro.observe(host.el);    
+    
+})();
+</script>
+</template>
+

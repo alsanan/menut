@@ -1,0 +1,127 @@
+<!--
+  @component x-tilt
+  @category 3d
+  @description 3D perspective tilt card. Slotted content gets translateZ depth. Pointer move for rotation, glare effect, drop shadow.
+  @usage <x-tilt depth="100" scale="1"><div>Content</div></x-tilt>
+  @impl Script calculates rotation from pointer position relative to card center. Layers get incremental translateZ. Glare via radial gradient.
+-->
+<template shadowrootmode="open">
+    
+    <style>
+    :host{
+        display:block;
+        min-height:24rem;
+    }
+    .stage{
+        width:100%;
+        height:100%;
+        display:grid;
+        place-items:center;
+        perspective:1600px;
+        perspective-origin:center;
+        overflow:hidden;
+    }
+    .card{
+        width:min(28rem,85%);
+        min-height:16rem;
+        padding:2rem;
+        border-radius:1rem;
+        background:var(--bg-card,#fff);
+        box-shadow: 0 .5rem 2rem rgb(0 0 0 /.18);
+        transform-style:preserve-3d;
+        will-change:transform;
+        margin-block: 3rem;
+        align-content: center; 
+        justify-items: center;   
+    }
+    .surface{ transform-style:preserve-3d; v}
+    
+    ::slotted(*){ transform:translateZ(var(--depth,40px)); }
+    
+    .shadow{
+        position:absolute;
+        inset:100% 8% auto;
+        height:24px;
+        border-radius:50%;
+        background:rgb(0 0 0 /.18);
+        filter:blur(18px);
+        transform:translateY(12px);
+        opacity:.5;
+        pointer-events:none;
+    }
+    
+    .glare{
+        position:absolute;
+        inset:0;
+        border-radius:inherit;
+        background:
+            radial-gradient(circle at center,
+                rgb(255 255 255 /.45),
+                transparent 55%);
+        opacity:0;
+        pointer-events:none;
+        mix-blend-mode:screen;
+    }
+    .card::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        border-radius:inherit;
+        background:
+            linear-gradient(
+                135deg,
+                rgb(255 255 255 /.25),
+                transparent 60%
+            );
+        transform:translateZ(-40px);
+    }    
+    </style>
+        
+    <div class="stage">
+        <div class="shadow"></div>
+        <article class="card">
+            <slot></slot>
+        </article>
+    </div>
+
+
+<script>
+const host=this;
+const root=host.el.shadowRoot;
+const stage=root.querySelector(".stage");
+const card=root.querySelector(".card");
+const slot=root.querySelector("slot");
+const depth=Number(host.el.getAttribute("depth")||100);
+const scale=Number(host.el.getAttribute("scale")||1);
+
+function updateDepth(){
+    const nodes=slot.assignedElements({flatten:true});
+    const step = depth / (nodes.length + 1);
+    nodes.forEach((el,i)=>{
+        const z = 2*depth - i * step;
+        el.style.transform = `translateZ(${z}px)`;
+    });
+}
+
+updateDepth();
+
+slot.addEventListener("slotchange",updateDepth);
+
+stage.addEventListener("pointermove",e=>{
+    const r=card.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width;
+    const y=(e.clientY-r.top)/r.height;
+    const rx=(0.5-y)*14;
+    const ry=(x-0.5)*18;
+    card.style.transform=
+        `rotateX(${rx}deg)
+         rotateY(${ry}deg)
+         scale(${scale})`;
+});
+
+stage.addEventListener("pointerleave",()=>{
+    card.style.transform="";
+});
+</script>
+</template>
+
