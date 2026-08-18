@@ -176,6 +176,7 @@
       <a href="docs/spec.md" :on.click="(event.preventDefault(), openDoc('docs/spec.md'))">Specification</a>
       <a href="docs/api.md" :on.click="(event.preventDefault(), openDoc('docs/api.md'))">API &amp; directives</a>
       <a href="README.md" :on.click="(event.preventDefault(), openDoc('README.md'))">README</a>
+      <a href="CONTRIBUTING.md" :on.click="(event.preventDefault(), openDoc('CONTRIBUTING.md'))">Contributing</a>
 
       <hr>
 
@@ -436,6 +437,11 @@ _.mount();</x-code-block>
         </ul>
 
         <p><small>Full example in <a href="examples/components.html">examples/components.html</a> · Reference in <a href="docs/api.md" :on.click="(event.preventDefault(), openDoc('docs/api.md'))">docs/api.md</a>.</small></p>
+
+        <h3>Component library &amp; contributing</h3>
+        <p>Menut ships with a re-usable library of SFC components in <code>components/</code>. Browse them in the <a href="examples/components.html">live gallery</a> or the <a href="docs/components.md" :on.click="(event.preventDefault(), openDoc('docs/components.md'))">auto-generated reference</a>, grouped by category: <code>forms</code>, <code>data</code>, <code>text</code>, <code>buttons</code>, <code>layout</code>, <code>3d</code>, <code>content</code>.</p>
+        <p>To propose a <strong>new component</strong>: copy <code>components/_template.html</code>, fill its doc comment (<code>@component</code>, <code>@category</code>, <code>@usage</code>), add a demo to <code>examples/components.html</code> and open a <strong>pull request</strong>. A bot runs on the PR — the <code>verify-component</code> check, a static scan plus an AI review — and <code>main</code> is protected: the check must pass (and for community PRs, a review) before it can merge. New components are verified automatically, docs regenerate after merging, and the gallery is re-published from <code>main</code>.</p>
+        <p><small>Full guide with conventions, rules and checklist: <a href="CONTRIBUTING.md" :on.click="(event.preventDefault(), openDoc('CONTRIBUTING.md'))">CONTRIBUTING.md</a>.</small></p>
       </section>
 
       <hr>
@@ -552,6 +558,11 @@ _.remove = (index)=> { _.tasks.splice(index, 1); }
             <header><h3>README</h3></header>
             <p>Quick overview: what Menut is, installation and a complete 30-line example.</p>
             <a href="README.md" :on.click="(event.preventDefault(), openDoc('README.md'))"><button secondary>README.md &rarr;</button></a>
+          </article>
+          <article id="contributing">
+            <header><h3>Contributing</h3></header>
+            <p>How to propose a component: SFC format, categories, conventions and the PR flow with its verification bot.</p>
+            <a href="CONTRIBUTING.md" :on.click="(event.preventDefault(), openDoc('CONTRIBUTING.md'))"><button secondary>CONTRIBUTING.md &rarr;</button></a>
           </article>
         </div>
         <dialog id="contenido" class="md-content" aria-live="polite" closedby="any">
