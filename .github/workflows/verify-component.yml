@@ -12,7 +12,7 @@ permissions:
   issues: write
 
 jobs:
-  verify:
+  verify-component:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +24,7 @@ jobs:
         run: |
           # Get all .html files changed in components/ (added or modified)
           FILES=$(gh api repos/$GITHUB_REPOSITORY/pulls/${{ github.event.pull_request.number }}/files \
+            --paginate \
             --jq '[.[] | select(.filename | startswith("components/") and endswith(".html")) | .filename] | join(" ")')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
         env:
