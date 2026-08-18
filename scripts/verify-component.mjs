@@ -41,7 +41,7 @@ async function staticChecks(filePath, content) {
   }
   const comment = commentMatch[1];
 
-  for (const tag of ["@component", "@category", "@usage"]) {
+  for (const tag of ["component", "category", "usage"]) {
     if (!new RegExp(`@${tag}\\s+\\S`).test(comment)) {
       fail(`Missing or empty @${tag} in doc comment.`);
     }
@@ -127,7 +127,7 @@ async function aiReview(filePath, content) {
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) return null;
 
-  const baseUrl = process.env.LLM_BASE_URL || "https://opencode.ai/zen/go/v1";
+  const baseUrl = (process.env.LLM_BASE_URL || "https://opencode.ai/zen/go/v1").replace(/\/+$/, "");
   const model = process.env.LLM_MODEL || "deepseek-v4-flash";
 
   const prompt = `You are reviewing a Menut component (a single-file HTML custom element).
