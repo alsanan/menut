@@ -1247,6 +1247,12 @@
             const attrVal = el.getAttribute(pd.name);
             raw[pd.name] = attrVal != null ? pd.coerce(attrVal) : pd.default;
         }
+        // Capture original innerHTML before template replaces it.
+        // Exposed as this.default for components that accept slot-like content
+        // without shadow DOM (e.g. x-code-highlight).
+        Object.defineProperty(raw, "default", {
+            value: el.innerHTML, enumerable: false, configurable: true
+        });
         // Bidirectional prop reflection helper.
         // state → attribute: serializes and sets/removes the attribute.
         // attribute → state: coerces and assigns to state.

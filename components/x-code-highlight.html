@@ -2,11 +2,11 @@
   @component x-code-highlight
   @category content
   @description Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an external library as a Menut SFC.
-  @usage <x-code-highlight lang="javascript" :code="myCodeVar"></x-code-highlight>
+  @usage <x-code-highlight lang="javascript">code here</x-code-highlight>
   @impl Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
   @see https://davatron5000.github.io/microlighter/
 -->
-<template lang:string="javascript" theme:string="github" code:string="">
+<template lang:string="javascript" theme:string="github">
 <style>
   :host { display: block; position: relative }
   pre {
@@ -45,7 +45,7 @@
   <span class="lang"></span>
   <button class="copy">Copy</button>
 </div>
-<pre><code ::="code"></code></pre>
+<pre><code ::="default"></code></pre>
 
 <script>
 const host = this
@@ -67,8 +67,7 @@ function updateHeader() {
 
 function copyCode() {
   const code = el.querySelector('code')
-  const text = code ? code.textContent : ''
-  navigator.clipboard.writeText(text).then(() => {
+  navigator.clipboard.writeText(code.textContent).then(() => {
     const btn = el.querySelector('.copy')
     btn.textContent = 'Copied!'
     setTimeout(() => btn.textContent = 'Copy', 1500)
@@ -92,15 +91,13 @@ async function highlight() {
   const codeEl = el.querySelector('code')
   if (!codeEl) return
 
-  const lang = getLang()
-  const theme = getTheme()
+  codeEl.className = 'language-' + getLang()
 
-  codeEl.className = 'language-' + lang
+  el.setAttribute('data-syntax-theme', getTheme())
 
-  el.setAttribute('data-syntax-theme', theme)
-
-  if (!el.querySelector('[data-syntax-theme]')) {
+  if (!el.querySelector('style[data-theme]')) {
     const style = document.createElement('style')
+    style.setAttribute('data-theme', '')
     style.textContent = `
       [data-syntax-theme="github"] {
         color-scheme: light dark;
@@ -130,7 +127,6 @@ async function highlight() {
 el.querySelector('.copy').addEventListener('click', copyCode)
 host.onpropchange = (name) => {
   if (name === 'lang') { updateHeader(); highlight() }
-  if (name === 'code') highlight()
 }
 host.onconnected = () => {
   updateHeader()
