@@ -2,11 +2,11 @@
   @component x-code-highlight
   @category content
   @description Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an external library as a Menut SFC.
-  @usage <x-code-highlight lang="javascript" theme="github">code here</x-code-highlight>
-  @impl Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Themes via light-dark(). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
+  @usage <x-code-highlight lang="javascript" :code="myCodeVar"></x-code-highlight>
+  @impl Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
   @see https://davatron5000.github.io/microlighter/
 -->
-<template shadowrootmode="open" lang:string="javascript" theme:string="github" lineNumbers:boolean="false">
+<template lang:string="javascript" theme:string="github" code:string="">
 <style>
   :host { display: block; position: relative }
   pre {
@@ -40,28 +40,16 @@
     transition: background 0.15s, color 0.15s;
   }
   .copy:hover { background: light-dark(#e9ecef, #21262d); }
-  .line-nums {
-    counter-reset: line;
-    padding-left: 3rem;
-  }
-  .line-nums :deep(code) { counter-increment: line }
-  .line-nums :deep(code)::before {
-    content: counter(line);
-    position: absolute; left: 0; width: 2.5rem;
-    text-align: right; color: light-dark(#8b949e, #484f58);
-    font-size: 0.8em;
-  }
 </style>
 <div class="header">
   <span class="lang"></span>
   <button class="copy">Copy</button>
 </div>
-<pre><code><slot></slot></code></pre>
+<pre><code ::="code"></code></pre>
 
 <script>
 const host = this
 const el = host.el
-const root = el.shadowRoot || el
 
 let hlAll = null
 
@@ -74,14 +62,14 @@ function getTheme() {
 }
 
 function updateHeader() {
-  root.querySelector('.lang').textContent = getLang()
+  el.querySelector('.lang').textContent = getLang()
 }
 
 function copyCode() {
-  const code = root.querySelector('code')
+  const code = el.querySelector('code')
   const text = code ? code.textContent : ''
   navigator.clipboard.writeText(text).then(() => {
-    const btn = root.querySelector('.copy')
+    const btn = el.querySelector('.copy')
     btn.textContent = 'Copied!'
     setTimeout(() => btn.textContent = 'Copy', 1500)
   })
@@ -101,20 +89,17 @@ async function highlight() {
   await loadMicroLighter()
   if (!hlAll) return
 
-  const code = root.querySelector('code')
-  if (!code) return
+  const codeEl = el.querySelector('code')
+  if (!codeEl) return
 
   const lang = getLang()
   const theme = getTheme()
 
-  // MicroLighter reads `language-*` class on <code>
-  code.className = 'language-' + lang
+  codeEl.className = 'language-' + lang
 
-  // Set theme attribute on host
   el.setAttribute('data-syntax-theme', theme)
 
-  // Apply theme CSS if not already loaded
-  if (!root.querySelector('[data-syntax-theme]')) {
+  if (!el.querySelector('[data-syntax-theme]')) {
     const style = document.createElement('style')
     style.textContent = `
       [data-syntax-theme="github"] {
@@ -136,17 +121,16 @@ async function highlight() {
         color: var(--syntax-foreground);
       }
     `
-    root.appendChild(style)
+    el.appendChild(style)
   }
 
-  // Highlight with MicroLighter (CSS Custom Highlights API)
-  await hlAll({ root, selector: 'pre > code' })
+  await hlAll({ root: el, selector: 'pre > code' })
 }
 
-root.querySelector('.copy').addEventListener('click', copyCode)
+el.querySelector('.copy').addEventListener('click', copyCode)
 host.onpropchange = (name) => {
-  if (name === 'lang') updateHeader()
-  if (name === 'theme') highlight()
+  if (name === 'lang') { updateHeader(); highlight() }
+  if (name === 'code') highlight()
 }
 host.onconnected = () => {
   updateHeader()

@@ -803,15 +803,10 @@ _.mount();</x-code-block></div>
 
       <div class="demo">
         <h3>x-code-highlight</h3>
-        <p class="usage">&lt;x-code-highlight lang="javascript"&gt;…&lt;/x-code-highlight&gt;</p>
+        <p class="usage">&lt;x-code-highlight lang="javascript" :code="codeExample"&gt;</p>
         <p class="note">Wraps <a href="https://davatron5000.github.io/microlighter/">MicroLighter</a> by <a href="https://daverupert.com/2026/08/microlighter/">Dave Rupert</a>. Uses CSS Custom Highlights API — no span injection.</p>
         <div class="stage">
-          <x-code-highlight lang="javascript">window._ = {
-  counter: 0,
-  increment() { _.counter++ }
-};
-
-_.mount();</x-code-highlight>
+          <x-code-highlight lang="javascript" :code="codeExample"></x-code-highlight>
         </div>
       </div>
 
@@ -970,6 +965,7 @@ A **micro** framework for HTML-first components.
       rn: 1234,
       label: "today",
       haceMinutos: new Date(Date.now() - 5 * 60000).toISOString(),
+      codeExample: 'window._ = {\n  counter: 0,\n  increment() { _.counter++ }\n};\n\n_.mount();',
 
       saAppend() {
           document.body.insertAdjacentHTML('beforeend', '<server-action action="append" target="#sa-list"><li>New row</li></server-action>');
