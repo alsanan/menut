@@ -2,10 +2,10 @@
   @component border-snap
   @category images
   @description Image with conditional border-radius: circular when it fits, rectangular when it overflows. Pure CSS, no JS.
-  @usage <border-snap src="photo.jpg" radius="50px"></border-snap>
+  @usage <border-snap src="photo.jpg" radius="50px" max="400px"></border-snap>
   @impl Uses CSS container queries (cqi) and clamp() to detect overflow. Based on Ahmad Shadeed's technique (https://ishadeed.com/article/conditional-border-radius/).
 -->
-<template radius:string="50px">
+<template radius:string="50px" max:string="none">
 <style>
   :host {
     display: block;
@@ -13,8 +13,9 @@
   }
   img {
     display: block;
-    max-inline-size: 100%;
     inline-size: 100%;
+    max-inline-size: var(--max, none);
+    margin-inline: auto;
     object-fit: cover;
     border-radius: clamp(0px, (100cqi - 100%) * 1e5, var(--r, 50px));
   }
@@ -29,13 +30,15 @@ const img = el.querySelector('img')
 function apply() {
   const r = host.radius || el.getAttribute('radius') || '50px'
   img.style.setProperty('--r', r)
+  const m = host.max || el.getAttribute('max') || 'none'
+  img.style.setProperty('--max', m)
   const src = el.getAttribute('src')
   if (src && !img.src) img.src = src
   const alt = el.getAttribute('alt')
   if (alt) img.alt = alt
 }
 
-host.onpropchange = (n) => { if (n === 'radius') apply() }
+host.onpropchange = (n) => { if (n === 'radius' || n === 'max') apply() }
 host.onconnected = apply
 </script>
 </template>

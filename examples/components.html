@@ -744,10 +744,10 @@ _.mount();</x-code-block></div>
 
       <div class="demo">
         <h3>border-snap</h3>
-        <p class="usage">&lt;border-snap src="photo.jpg" radius="50px"&gt;</p>
-        <p class="note">Conditional border-radius: circular when it fits, rectangular when it overflows. Pure CSS — no JS. Resize the browser to see it adapt.</p>
+        <p class="usage">&lt;border-snap src="photo.jpg" radius="50px" max="400px"&gt;</p>
+        <p class="note">Conditional border-radius: circular when container is wider than <code>max</code>, rectangular when not. Resize to see it adapt.</p>
         <div class="stage" style="container-type:inline-size">
-          <border-snap src="https://picsum.photos/seed/round/600/300" radius="50px"></border-snap>
+          <border-snap src="https://picsum.photos/seed/round/600/300" radius="50px" max="400px"></border-snap>
         </div>
       </div>
 
