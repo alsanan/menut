@@ -6,7 +6,7 @@
   @impl Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Themes via light-dark(). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
   @see https://davatron5000.github.io/microlighter/
 -->
-<template lang:string="javascript" theme:string="github" lineNumbers:boolean="false">
+<template shadowrootmode="open" lang:string="javascript" theme:string="github" lineNumbers:boolean="false">
 <style>
   :host { display: block; position: relative }
   pre {
@@ -63,7 +63,7 @@ const host = this
 const el = host.el
 const root = el.shadowRoot || el
 
-let loaded = false
+let hlAll = null
 
 function getLang() {
   return host.lang || el.getAttribute('lang') || 'javascript'
@@ -78,7 +78,7 @@ function updateHeader() {
 }
 
 function copyCode() {
-  const code = el.querySelector('code') || el.querySelector('pre')
+  const code = root.querySelector('code')
   const text = code ? code.textContent : ''
   navigator.clipboard.writeText(text).then(() => {
     const btn = root.querySelector('.copy')
@@ -88,11 +88,10 @@ function copyCode() {
 }
 
 async function loadMicroLighter() {
-  if (loaded) return
-  if (window.MicroLighter) { loaded = true; return }
+  if (hlAll) return
   try {
-    await import('https://cdn.jsdelivr.net/npm/microlighter@latest/microlighter.min.js')
-    loaded = true
+    const mod = await import('https://cdn.jsdelivr.net/npm/microlighter@2.1.0/dist/index.min.js')
+    hlAll = mod.highlightAll
   } catch (e) {
     console.warn('x-code-highlight: could not load MicroLighter', e)
   }
@@ -100,13 +99,16 @@ async function loadMicroLighter() {
 
 async function highlight() {
   await loadMicroLighter()
-  if (!window.MicroLighter) return
+  if (!hlAll) return
 
-  const code = el.querySelector('code')
+  const code = root.querySelector('code')
   if (!code) return
 
   const lang = getLang()
   const theme = getTheme()
+
+  // MicroLighter reads `language-*` class on <code>
+  code.className = 'language-' + lang
 
   // Set theme attribute on host
   el.setAttribute('data-syntax-theme', theme)
@@ -137,13 +139,8 @@ async function highlight() {
     root.appendChild(style)
   }
 
-  // Highlight with MicroLighter
-  if (window.MicroLighter.highlightAll) {
-    await window.MicroLighter.highlightAll({
-      selector: `pre`,
-      root: root
-    })
-  }
+  // Highlight with MicroLighter (CSS Custom Highlights API)
+  await hlAll({ root, selector: 'pre > code' })
 }
 
 root.querySelector('.copy').addEventListener('click', copyCode)
