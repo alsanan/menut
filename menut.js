@@ -1248,9 +1248,9 @@
             raw[pd.name] = attrVal != null ? pd.coerce(attrVal) : pd.default;
         }
         // Capture original innerHTML before template replaces it.
-        // Exposed as this.default for components that accept slot-like content
+        // Exposed as this._content for components that accept slot-like content
         // without shadow DOM (e.g. x-code-highlight).
-        Object.defineProperty(raw, "default", {
+        Object.defineProperty(raw, "_content", {
             value: el.innerHTML, enumerable: false, configurable: true
         });
         // Bidirectional prop reflection helper.
