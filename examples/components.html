@@ -87,6 +87,7 @@
   <define-component src="../components/image-compare.html"></define-component>
   <define-component src="../components/dot-display.html"></define-component>
   <define-component src="../components/x-code-block.html"></define-component>
+  <define-component src="../components/x-code-highlight.html"></define-component>
   <define-component src="../components/toast-console.html"></define-component>
   <define-component src="../components/input-enhanced.html"></define-component>
   <define-component src="../components/highlighted-input.html"></define-component>
@@ -799,6 +800,20 @@ _.mount();</x-code-block></div>
 
     <section>
       <h2>Content &amp; actions</h2>
+
+      <div class="demo">
+        <h3>x-code-highlight</h3>
+        <p class="usage">&lt;x-code-highlight lang="javascript"&gt;…&lt;/x-code-highlight&gt;</p>
+        <p class="note">Wraps <a href="https://davatron5000.github.io/microlighter/">MicroLighter</a> by <a href="https://daverupert.com/2026/08/microlighter/">Dave Rupert</a>. Uses CSS Custom Highlights API — no span injection.</p>
+        <div class="stage">
+          <x-code-highlight lang="javascript">window._ = {
+  counter: 0,
+  increment() { _.counter++ }
+};
+
+_.mount();</x-code-highlight>
+        </div>
+      </div>
 
       <div class="demo">
         <h3>sticky-sidebar</h3>

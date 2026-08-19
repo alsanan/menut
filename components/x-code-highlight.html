@@ -1,0 +1,159 @@
+<!--
+  @component x-code-highlight
+  @category content
+  @description Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an external library as a Menut SFC.
+  @usage <x-code-highlight lang="javascript" theme="github">code here</x-code-highlight>
+  @impl Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Themes via light-dark(). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
+  @see https://davatron5000.github.io/microlighter/
+-->
+<template lang:string="javascript" theme:string="github" lineNumbers:boolean="false">
+<style>
+  :host { display: block; position: relative }
+  pre {
+    margin: 0;
+    padding: 1rem;
+    border-radius: var(--radius-card, 12px);
+    background: light-dark(#f6f8fa, #161b22);
+    color: light-dark(#24292f, #e6edf3);
+    overflow-x: auto;
+    font: 400 0.875em/1.6 'SF Mono', 'Fira Code', monospace;
+    tab-size: 2;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .4rem .75rem;
+    font: 500 0.7rem/1 inherit;
+    color: light-dark(#656d76, #8b949e);
+    background: light-dark(#f0f2f5, #0d1117);
+    border-radius: var(--radius-card, 12px) var(--radius-card, 12px) 0 0;
+    border-bottom: 1px solid light-dark(#d0d7de, #21262d);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .header + pre { border-radius: 0 0 var(--radius-card, 12px) var(--radius-card, 12px) }
+  .copy {
+    appearance: none; border: 1px solid light-dark(#d0d7de, #30363d);
+    background: transparent; padding: 2px 8px; border-radius: 6px;
+    font: inherit; color: inherit; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .copy:hover { background: light-dark(#e9ecef, #21262d); }
+  .line-nums {
+    counter-reset: line;
+    padding-left: 3rem;
+  }
+  .line-nums :deep(code) { counter-increment: line }
+  .line-nums :deep(code)::before {
+    content: counter(line);
+    position: absolute; left: 0; width: 2.5rem;
+    text-align: right; color: light-dark(#8b949e, #484f58);
+    font-size: 0.8em;
+  }
+</style>
+<div class="header">
+  <span class="lang"></span>
+  <button class="copy">Copy</button>
+</div>
+<pre><code><slot></slot></code></pre>
+
+<script>
+const host = this
+const el = host.el
+const root = el.shadowRoot || el
+
+let loaded = false
+
+function getLang() {
+  return host.lang || el.getAttribute('lang') || 'javascript'
+}
+
+function getTheme() {
+  return host.theme || el.getAttribute('theme') || 'github'
+}
+
+function updateHeader() {
+  root.querySelector('.lang').textContent = getLang()
+}
+
+function copyCode() {
+  const code = el.querySelector('code') || el.querySelector('pre')
+  const text = code ? code.textContent : ''
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = root.querySelector('.copy')
+    btn.textContent = 'Copied!'
+    setTimeout(() => btn.textContent = 'Copy', 1500)
+  })
+}
+
+async function loadMicroLighter() {
+  if (loaded) return
+  if (window.MicroLighter) { loaded = true; return }
+  try {
+    await import('https://cdn.jsdelivr.net/npm/microlighter@latest/microlighter.min.js')
+    loaded = true
+  } catch (e) {
+    console.warn('x-code-highlight: could not load MicroLighter', e)
+  }
+}
+
+async function highlight() {
+  await loadMicroLighter()
+  if (!window.MicroLighter) return
+
+  const code = el.querySelector('code')
+  if (!code) return
+
+  const lang = getLang()
+  const theme = getTheme()
+
+  // Set theme attribute on host
+  el.setAttribute('data-syntax-theme', theme)
+
+  // Apply theme CSS if not already loaded
+  if (!root.querySelector('[data-syntax-theme]')) {
+    const style = document.createElement('style')
+    style.textContent = `
+      [data-syntax-theme="github"] {
+        color-scheme: light dark;
+        --syntax-background: light-dark(#f6f8fa, #161b22);
+        --syntax-foreground: light-dark(#24292f, #e6edf3);
+        --syntax-comment: light-dark(#6a737d, #8b949e);
+        --syntax-keyword: light-dark(#d73a49, #ff7b72);
+        --syntax-string: light-dark(#032f62, #a5d6ff);
+        --syntax-function: light-dark(#6f42c1, #d2a8ff);
+        --syntax-variable: light-dark(#e36209, #ffa657);
+        --syntax-constant: light-dark(#005cc5, #79c0ff);
+        --syntax-type: light-dark(#005cc5, #79c0ff);
+        --syntax-tag: light-dark(#22863a, #7ee787);
+        --syntax-attribute: light-dark(#6f42c1, #d2a8ff);
+      }
+      [data-syntax-theme="github"] pre:has(code) {
+        background: var(--syntax-background);
+        color: var(--syntax-foreground);
+      }
+    `
+    root.appendChild(style)
+  }
+
+  // Highlight with MicroLighter
+  if (window.MicroLighter.highlightAll) {
+    await window.MicroLighter.highlightAll({
+      selector: `pre`,
+      root: root
+    })
+  }
+}
+
+root.querySelector('.copy').addEventListener('click', copyCode)
+host.onpropchange = (name) => {
+  if (name === 'lang') updateHeader()
+  if (name === 'theme') highlight()
+}
+host.onconnected = () => {
+  updateHeader()
+  highlight()
+}
+</script>
+</template>

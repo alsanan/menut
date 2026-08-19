@@ -194,6 +194,10 @@
       <div class="head">Tests</div>
       <a href="#tests">Test suite</a>
       <a href="test/index.html">Open test &rarr;</a>
+
+      <div class="head">Analysis</div>
+      <a href="#anatomy">Code anatomy</a>
+      <a href="menut-viz.html">Visualization &rarr;</a>
     </nav>
 
     <main class="docs-main">
@@ -218,7 +222,7 @@
           <kbd lines>Granular reactivity</kbd>
           <kbd lines>No dependencies</kbd>
           <kbd lines>Web-native</kbd>
-          <kbd lines>~4.5 Kb</kbd>
+          <kbd lines>~12.6 Kb</kbd>
         </div>
       </section>
 
@@ -286,10 +290,13 @@ _.mount();</x-code-block>
             <tr><td><code>:as</code></td><td>Type coercion for <code>:model</code> (<code>int</code>, <code>number</code>, <code>bool</code>, <code>array</code>, <code>object</code>)</td></tr>
             <tr><td><code>:transition</code></td><td>View Transition on re-render; modifiers <code>.fade</code>, <code>.scale</code>, <code>.slideup</code>, <code>.shared="name"</code></td></tr>
             <tr><td><code>:if</code></td><td>Conditional rendering (on <code>&lt;template&gt;</code>)</td></tr>
+            <tr><td><code>:else</code></td><td>Else branch with <code>:if</code> (on <code>&lt;template&gt;</code>)</td></tr>
             <tr><td><code>:each</code></td><td>Repeats content (on <code>&lt;template&gt;</code>)</td></tr>
             <tr><td><code>:ref</code></td><td>References an element in <code>_.ref</code></td></tr>
             <tr><td><code>:on.*</code></td><td>Listens to events. <code>this</code> is the element</td></tr>
+            <tr><td><code>:is</code></td><td>Dynamic root element on component usage (<code>&lt;x-card :is="article"&gt;</code>)</td></tr>
             <tr><td><code>:attribute</code></td><td>Any HTML attribute (<code>:class</code>, <code>:src</code>, <code>:value</code>…)</td></tr>
+            <tr><td><code>:shorthand</code></td><td><code>:name</code> without <code>=</code> expands to <code>:name="name"</code></td></tr>
           </tbody>
         </table>
         <p class="note">If <code>:if</code> or <code>:each</code> appear on a non-<code>&lt;template&gt;</code> element, the console will warn with the problem so you can fix it.</p>
@@ -632,6 +639,14 @@ _.remove = (index)=> { _.tasks.splice(index, 1); }
         <p>A self-contained suite that exercises every directive and shows the result on screen. Open it in any browser.</p>
         <a href="test/index.html"><button primary>Run the tests &rarr;</button></a>
         <p style="margin-top:1rem"><small>During development the same suite runs against <code>menut.js</code> and <code>menut.min.js</code> to check they are equivalent.</small></p>
+      </section>
+
+      <hr>
+
+      <section id="anatomy">
+        <h2>Code anatomy</h2>
+        <p>An interactive treemap of every function in <code>menut.js</code>, proportional to its size.</p>
+        <a href="menut-viz.html"><button primary>Open visualization &rarr;</button></a>
       </section>
 
       <hr>

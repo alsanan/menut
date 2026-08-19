@@ -774,6 +774,31 @@
     }
 
     /**
+     * `:if` / `:else` chain on <template>.
+     */
+    function bindIfChain(t, ctx, fx) {
+        const b = t.map((p, i) => {
+            const g = compile(p.hasAttribute(":else") ? "true" : p.getAttribute(":if"));
+            const s = comment(i ? "if-" + i : "if"), e = comment("/if" + (i ? "-" + i : ""));
+            p.before(s); p.before(e); p.remove();
+            return { g, s, e, p };
+        });
+        let p = -1;
+        const h = vtHost(t[0]);
+        const r = effect(() => {
+            const a = b.findIndex(x => !!x.g(ctx));
+            if (p === a) return;
+            vt(h, () => {
+                if (p >= 0) { for (const f of b[p]._fx) disposeTree(f); removeContent(b[p].s, b[p].e); }
+                if (a >= 0) { b[a]._fx = []; insertContent(b[a].p, b[a].e, ctx, b[a]._fx); }
+                p = a;
+            });
+        });
+        r.children = [];
+        fx.push(r);
+    }
+
+    /**
      * `:each="collection"` on <template>.
      *
      * The effect re-runs when the collection changes, but it does NOT re-render
@@ -1075,8 +1100,6 @@
                 const state = this[componentState];
                 const pd = def.propMap[name];
                 if (!state || !pd) return;
-                // If the attribute change comes from the reflection itself
-                // (state → attribute), the setter already handled it → do not re-fire.
                 if (this._menutReflecting) return;
                 state[name] = pd.coerce(newVal);
             }
@@ -1215,10 +1238,6 @@
 
         // --- Local reactive state (props + the element as `el`) ---------------
         const raw = { el };
-        // AbortController del ciclo de vida: `signal` (no enumerable) se expone
-        // en el estado como `this.signal` para que los listeners usen
-        // `addEventListener(..., { signal: this.signal })`; al desconectar el
-        // elemento se aborta y se liberan listeners y demás huellas.
         const controller = new AbortController();
         el[componentAbort] = controller;
         Object.defineProperty(raw, "signal", {
@@ -1228,7 +1247,23 @@
             const attrVal = el.getAttribute(pd.name);
             raw[pd.name] = attrVal != null ? pd.coerce(attrVal) : pd.default;
         }
-        // Props as accessors: reflection (state → attribute) + onpropchange.
+        // Bidirectional prop reflection helper.
+        // state → attribute: serializes and sets/removes the attribute.
+        // attribute → state: coerces and assigns to state.
+        // Both directions fire `onpropchange`. `_menutReflecting` prevents loops.
+        el._reflect = function(name, v, pd) {
+            if (!el._menutReflecting) {
+                const s = serializeProp(v, pd.type);
+                if (s == null) { if (el.hasAttribute(name)) el.removeAttribute(name); }
+                else if (el.getAttribute(name) !== s) {
+                    el._menutReflecting = true;
+                    el.setAttribute(name, s);
+                    el._menutReflecting = false;
+                }
+            }
+            if (raw.onpropchange) raw.onpropchange(name, v);
+        };
+        // Props as accessors with state → attribute reflection.
         // Primitives reflect; array/object do not (property-only).
         for (const pd of def.propDefs) {
             if (pd.type === "array" || pd.type === "object") continue;
@@ -1237,23 +1272,7 @@
             Object.defineProperty(raw, name, {
                 enumerable: true, configurable: true,
                 get() { return value; },
-                set(v) {
-                    value = v;
-                    // State → attribute reflection. `_menutReflecting` is set
-                    // around setAttribute so the resulting attributeChangedCallback
-                    // does not fire again (no loops or double calls).
-                    if (!el._menutReflecting) {
-                        const s = serializeProp(v, pd.type);
-                        if (s == null) { if (el.hasAttribute(name)) el.removeAttribute(name); }
-                        else if (el.getAttribute(name) !== s) {
-                            el._menutReflecting = true;
-                            el.setAttribute(name, s);
-                            el._menutReflecting = false;
-                        }
-                    }
-                    // onpropchange ALWAYS fires (whether from the attribute or state).
-                    if (raw.onpropchange) raw.onpropchange(name, v);
-                }
+                set(v) { value = v; el._reflect(name, v, pd); }
             });
         }
         const state = reactive(raw);
@@ -1267,6 +1286,12 @@
         // <x-comp> itself (e.g. :num="item.v") are bound by the parent's scan
         // with its context, not by this scan with the component local state.
         let root = el;
+        const isTag = el.getAttribute(":is");
+        if (isTag) {
+            el.removeAttribute(":is");
+            root = document.createElement(isTag);
+            el.appendChild(root);
+        }
         if (def.shadow) {
             root = el.shadowRoot || el.attachShadow({ mode: "open" });
             if (def.style) {
@@ -1312,11 +1337,21 @@
         if (!node || node[mounted]) return;   // already processed → do not touch
         node[mounted] = true;                 // mark before processing
 
+        const processedChain = new Set();
+
         if (node.nodeType === 1) {            // 1 = element node
             if (node.tagName === "TEMPLATE") {
                 for (const attr of node.attributes) {
                     if (attr.name === ":if") {
-                        bindIf(node, attr.value, context, effects);
+                        const chain = [node];
+                        let next = node.nextElementSibling;
+                        while (next && next.tagName === "TEMPLATE"
+                               && next.hasAttribute(":else")) {
+                            chain.push(next);
+                            next = next.nextElementSibling;
+                        }
+                        for (const t of chain) processedChain.add(t);
+                        bindIfChain(chain, context, effects);
                         return;
                     }
                     if (attr.name === ":each") {
@@ -1334,6 +1369,10 @@
             // Covers :each clones, disconnected subtrees and normal usage.
             const def = components.get(node.tagName.toLowerCase());
             if (def) boot(node);
+            else if (node.hasAttribute(":is")) {
+                console.warn("Menut: :is only works on components", node);
+                node.removeAttribute(":is");
+            }
 
             // `:as` is consumed by `:model` on the same element (type coercion),
             // so it is captured before the loop (order-independent) and removed.
@@ -1349,6 +1388,12 @@
                     node.removeAttribute(attr.name);
                     continue;
                 }
+
+                // `:is` is consumed by boot() — skip to avoid generic processing.
+                if (attr.name === ":is") continue;
+
+                // Shorthand props: `:name` without `=` expands to `:name="name"`.
+                if (!attr.value) attr.value = attr.name.slice(1);
 
                 // The directive attribute is removed from the DOM: the HTML stays
                 // clean after mounting (like frameworks of this style do).
@@ -1386,8 +1431,10 @@
         }
 
         // Walk the children. A copy is used so the nodes the template bindings
-        // insert during the walk do not interfere.
+        // insert during the walk do not interfere. Templates that were already
+        // consumed as part of an :if/:else chain are skipped.
         for (const child of [...node.childNodes]) {
+            if (processedChain.has(child)) continue;
             scan(child, context, effects);
         }
     }

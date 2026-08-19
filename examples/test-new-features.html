@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Menut · Test: :else / shorthand props / :is</title>
+<style>
+  @import url(https://weblin.org/css.css);
+  body { max-width: 36rem; margin: 3rem auto; padding: 0 1rem; }
+  .card { border: 1px solid var(--hairline); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+  .card h3 { margin: 0 0 .5rem; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font: 600 0.75rem/1.4 sans-serif; }
+  .badge--pass { background: #2da44e22; color: #2da44e; }
+  .badge--fail { background: #cf222e22; color: #cf222e; }
+  .status { margin-top: .5rem; font: 500 0.85rem/1.5 sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- ── Test 1: :else ── -->
+<div class="card">
+  <h3>Test 1 · <code>:else</code> con <code>:if</code></h3>
+  <template :if="mostra">
+    <p class="status"><span class="badge badge--pass">✓ VISIBLE</span> <code>:if</code> branch activa</p>
+  </template>
+  <template :else>
+    <p class="status"><span class="badge badge--fail">✗ Ocult</span> <code>:else</code> branch activa</p>
+  </template>
+  <button :on.click="mostra = !mostra">Toggle mostra</button>
+  <p class="status">mostra = <code ::="mostra"></code></p>
+</div>
+
+<!-- ── Test 2: Shorthand props (:name → :name="name") ── -->
+<div class="card">
+  <h3>Test 2 · Shorthand props</h3>
+  <p ::="missatge"></p>
+  <p class="status">missatge = <code ::="missatge"></code></p>
+  <input :value type="text" :on.input="missatge = event.target.value" placeholder="Escriu algo…">
+  <button :on.click="missatge = 'Hola!'">Reset</button>
+</div>
+
+<!-- ── Test 3: :is (dynamic root element) ── -->
+<div class="card">
+  <h3>Test 3 · <code>:is</code> (dynamic root element)</h3>
+  <p class="usage">&lt;x-saluda <code>:is="article"</code>&gt;…&lt;/x-saluda&gt; → <code>&lt;article&gt;</code></p>
+  <div class="stage">
+    <x-saluda :is="article" :nom="nom">Test: :is</x-saluda>
+  </div>
+  <p class="status">nom = <code ::="nom"></code></p>
+  <button :on.click="nom = nom === 'Marc' ? 'Laia' : 'Marc'">Canvia nom</button>
+</div>
+
+<!-- ── Test 4: :else en :each ── -->
+<div class="card">
+  <h3>Test 4 · <code>:if</code>/<code>:else</code> en <code>:each</code></h3>
+  <ul>
+    <template :each="items">
+      <li>
+        <span :if="item.actiu" class="badge badge--pass">Actiu</span>
+        <span :else class="badge badge--fail">Inactiu</span>
+        <span ::="item.nom"></span>
+      </li>
+    </template>
+  </ul>
+  <p class="status">item.actiu = true/false dins :each</p>
+</div>
+
+<!-- ── Component: x-saluda (per provar :is) ── -->
+<template name="x-saluda">
+  <strong>Benvingut/da, <span ::="nom"></span>!</strong>
+  <p>Element root: <code ::="el.tagName.toLowerCase()"></code></p>
+  <script>
+  const host = this;
+  host.onconnected = () => {
+      host.el.querySelector('strong').style.color = 'var(--accent, #2da44e)';
+  };
+  </script>
+</template>
+
+<script src="../menut.js?v=99"></script>
+<script>
+window._ = {
+  mostra: true,
+  missatge: 'Escriu algo…',
+  nom: 'Marc',
+  items: [
+    { nom: 'HTML', actiu: true },
+    { nom: 'CSS', actiu: false },
+    { nom: 'JS', actiu: true }
+  ]
+};
+_.mount();
+</script>
+</body>
+</html>

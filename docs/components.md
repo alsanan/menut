@@ -92,6 +92,7 @@ Auto-generated from `components/*.html`.
 - [`sse-connect`](#sse-connect) — Opens a Server-Sent Events connection to `src`. Dispatches a `receive` CustomEve
 - [`sticky-sidebar`](#sticky-sidebar) — Sticky sidebar with two modes. Default: position:sticky with align-self:start (i
 - [`virtual-list`](#virtual-list) — Slot-based visibility virtualizer. Uses IntersectionObserver to add a visible cl
+- [`x-code-highlight`](#x-code-highlight) — Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an ext
 - [`x-markdown`](#x-markdown) — Render Markdown to HTML using marked.js loaded from CDN. Content can come from t
 
 ## Other
@@ -1393,6 +1394,30 @@ Slot-based visibility virtualizer. Uses IntersectionObserver to add a visible cl
 **Implementation notes**
 
 Observes slotted children and toggles the `visible` class. Also applies content-visibility:auto for performance.
+
+---
+
+## x-code-highlight
+
+Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an external library as a Menut SFC.
+
+**Usage**
+
+```html
+<x-code-highlight lang="javascript" theme="github">code here</x-code-highlight>
+```
+
+**Props**
+
+| Prop | Type | Default |
+|------|------|---------|
+| `lang` | `string` | `javascript` |
+| `theme` | `string` | `github` |
+| `lineNumbers` | `boolean` | `false` |
+
+**Implementation notes**
+
+Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Themes via light-dark(). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
 
 ---
 

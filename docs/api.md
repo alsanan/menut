@@ -213,6 +213,20 @@ Full example: [examples/transition.html](../examples/transition.html).
 
 It can contain several nodes. The `<template>` is replaced by the content.
 
+### `:else` (on `<template>`)
+
+Chains with `:if` to form an if/else. Only one branch is in the DOM at any time.
+The `:else` is implicitly the negation of the previous `:if`.
+
+```html
+<template :if="logueado">
+  <h1>Hello</h1>
+</template>
+<template :else>
+  <p>You need to log in</p>
+</template>
+```
+
 ### `:each` (on `<template>`)
 
 ```html

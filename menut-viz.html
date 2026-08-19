@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menut — Code Visualization</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #e6edf3; padding: 2rem; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: .9rem; }
+  .treemap { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 3px; margin-block: 2rem; }
+  .category {
+    border-radius: 8px; padding: 1rem; position: relative; overflow: hidden;
+    display: flex; flex-direction: column; gap: .5rem; min-height: 120px;
+  }
+  .category:hover { transform: scale(1.01); z-index: 1; }
+  .cat-header { font-weight: 600; font-size: .95rem; display: flex; justify-content: space-between; align-items: center; }
+  .cat-lines { font-size: .75rem; opacity: .7; font-weight: 400; }
+  .cat-pct { font-size: .7rem; background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 4px; }
+  .funcs { display: flex; flex-direction: column; gap: 2px; }
+  .func {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: .78rem; padding: 3px 6px; border-radius: 4px;
+    background: rgba(0,0,0,.2);
+  }
+  .func-name { font-family: 'SF Mono', 'Fira Code', monospace; }
+  .func-size { opacity: .6; font-size: .7rem; }
+
+  #treemap-box { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; height: 450px; margin-bottom: 2rem; align-items: end; }
+  .tm-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 8.6%; }
+  .tm-block {
+    display: flex; flex-direction: row;
+    padding: .1rem .2rem; border-radius: 3px; overflow: hidden;
+    min-height: 1.1rem; cursor: default; transition: filter .15s; gap:0.3rem;
+  }
+  .tm-block:hover { filter: brightness(1.15); }
+  .tm-block .label { font-weight: 600; font-size: .7rem; white-space: nowrap; text-overflow: ellipsis; }
+  .tm-block .detail { font-size: .6rem; opacity: .7; margin-top: 1px; }
+
+  .legend { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; margin-block: 1.5rem; }
+  .legend-item { display: flex; align-items: center; justify-content:center; font-size: 1.3rem; align-items:end; border-bottom:solid; line-height:1.1; padding-bottom:0.5rem; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .stat { text-align: center; }
+  .stat-val { font-size: 1.8rem; font-weight: 700; }
+  .stat-label { font-size: .75rem; color: #8b949e; }
+</style>
+</head>
+<body>
+
+<h1>Menut — Code Anatomy</h1>
+<p class="subtitle">12.9kb minified · 1549 lines source · 6 categories</p>
+
+<div class="stats">
+  <div class="stat"><div class="stat-val">12.9<span style="font-size:.9rem">kb</span></div><div class="stat-label">minified</div></div>
+  <div class="stat"><div class="stat-val">~5<span style="font-size:.9rem">kb</span></div><div class="stat-label">gzip</div></div>
+  <div class="stat"><div class="stat-val">1549</div><div class="stat-label">source lines</div></div>
+  <div class="stat"><div class="stat-val">0</div><div class="stat-label">dependencies</div></div>
+</div>
+
+
+<h2 style="font-size:1rem; margin-bottom:.75rem; color:#8b949e">Treemap — each block proportional to source lines</h2>
+
+<div id="treemap-box"></div>
+
+<div class="legend" id="legend"></div>
+
+<!--h2 style="font-size:1rem; margin-bottom:.75rem; color:#8b949e">Detail — all functions by category</h2-->
+
+<div class="treemap" id="treemap"></div>
+
+<script>
+const data = [
+  { name: "Component system", color: "#96ceb4", lines: 265, funcs: [
+    { name: "boot", lines: 85 }, { name: "defineComponent", lines: 56 },
+    { name: "scopeCSS", lines: 32 }, { name: "registerDefinition", lines: 30 },
+    { name: "processDefineComponent", lines: 20 }, { name: "loadExternal", lines: 20 },
+    { name: "contextFor", lines: 12 }, { name: "define", lines: 10 }
+  ]},
+  { name: "DOM binding", color: "#0ecda4", lines: 264, funcs: [
+    { name: "bindEach", lines: 120 }, { name: "bindModel", lines: 40 },
+    { name: "bindIf", lines: 40 }, { name: "bindIfChain", lines: 20 },
+    { name: "parseProps", lines: 11 }, { name: "attributeSetter", lines: 10 },
+    { name: "insertContent", lines: 9 }, { name: "removeContent", lines: 7 },
+    { name: "disposeTree", lines: 4 }, { name: "bindRef", lines: 3 }
+  ]},
+  { name: "Scanner", color: "#feca57", lines: 107, funcs: [
+    { name: "scan", lines: 104 }, { name: "compile", lines: 3 }
+  ]},
+  { name: "Reactive core", color: "#ff6b6b", lines: 76, funcs: [
+    { name: "reactive", lines: 30 }, { name: "track", lines: 18 },
+    { name: "effect", lines: 13 }, { name: "trigger", lines: 8 },
+    { name: "cached", lines: 7 }
+  ]},
+  { name: "View transitions", color: "#45b7d1", lines: 60, funcs: [
+    { name: "flushVT", lines: 38 }, { name: "vt", lines: 8 },
+    { name: "vtHost", lines: 7 }, { name: "setupVT", lines: 7 }
+  ]},
+  { name: "Helpers & mount", color: "#ff9ff3", lines: 15, funcs: [
+    { name: "injectHelpers", lines: 11 }, { name: "mount", lines: 4 }
+  ]}
+];
+
+const total = data.reduce((s, c) => s + c.lines, 0);
+
+// Legend
+const legend = document.getElementById('legend');
+data.forEach(c => {
+  legend.innerHTML += `<div class="legend-item" style="color:${c.color}">${c.name} <!--(${c.lines}L, ${(c.lines/total*100).toFixed(0)}%)--></div>`;
+});
+
+// Treemap: 6 grid columns, each column height proportional to its lines
+const box = document.getElementById('treemap-box');
+const maxCatLines = Math.max(...data.map(c => c.lines));
+data.forEach(cat => {
+  const col = document.createElement('div');
+  col.className = 'tm-col';
+  col.style.height = (cat.lines / maxCatLines * 100) + '%';
+  cat.funcs.forEach(f => {
+    const el = document.createElement('div');
+    el.className = 'tm-block';
+    el.style.flex = f.lines;
+    el.style.background = cat.color;
+    el.style.color = '#000';
+    const pct = (f.lines / total * 100).toFixed(1);
+    el.innerHTML = `<div class="label">${f.name}</div><div class="detail">${f.lines}L · ${pct}%</div>`;
+    el.title = `${cat.name} → ${f.name}: ${f.lines} lines (${pct}%)`;
+    col.appendChild(el);
+  });
+  box.appendChild(col);
+});
+
+// Detail cards
+const treemap = document.getElementById('treemap');
+data.forEach(cat => {
+  const card = document.createElement('div');
+  card.className = 'category';
+  card.style.background = cat.color + '22';
+  card.style.border = `1px solid ${cat.color}44`;
+  let funcsHtml = cat.funcs.map(f =>
+    `<div class="func"><span class="func-name">${f.name}</span><span class="func-size">${f.lines}L</span></div>`
+  ).join('');
+  card.innerHTML = `
+    <div class="cat-header">
+      <span>${cat.name} <span class="cat-lines">${cat.lines} lines</span></span>
+      <span class="cat-pct">${(cat.lines/total*100).toFixed(0)}%</span>
+    </div>
+    <div class="funcs">${funcsHtml}</div>
+  `;
+  treemap.appendChild(card);
+});
+</script>
+</body>
+</html>
