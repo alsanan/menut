@@ -27,6 +27,10 @@ const img = el.querySelector('img')
 function apply() {
   const r = host.radius || el.getAttribute('radius') || '50px'
   img.style.setProperty('--r', r)
+  const src = el.getAttribute('src')
+  if (src && !img.src) img.src = src
+  const alt = el.getAttribute('alt')
+  if (alt) img.alt = alt
 }
 
 host.onpropchange = (n) => { if (n === 'radius') apply() }
