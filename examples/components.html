@@ -85,6 +85,7 @@
   <define-component src="../components/x-tilt.html"></define-component>
   <define-component src="../components/layered-tilt.html"></define-component>
   <define-component src="../components/image-compare.html"></define-component>
+  <define-component src="../components/x-auto-radius.html"></define-component>
   <define-component src="../components/dot-display.html"></define-component>
   <define-component src="../components/x-code-block.html"></define-component>
   <define-component src="../components/x-code-highlight.html"></define-component>
@@ -740,6 +741,15 @@ _.mount();</x-code-block></div>
 
     <section>
       <h2>3D &amp; images</h2>
+
+      <div class="demo">
+        <h3>x-auto-radius</h3>
+        <p class="usage">&lt;x-auto-radius src="photo.jpg" radius="50px"&gt;</p>
+        <p class="note">Conditional border-radius: circular when it fits, rectangular when it overflows. Pure CSS — no JS. Resize the browser to see it adapt.</p>
+        <div class="stage" style="container-type:inline-size">
+          <x-auto-radius src="https://picsum.photos/seed/round/600/300" radius="50px"></x-auto-radius>
+        </div>
+      </div>
 
       <div class="demo">
         <h3>x-tilt</h3>

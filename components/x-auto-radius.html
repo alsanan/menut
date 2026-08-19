@@ -1,0 +1,35 @@
+<!--
+  @component x-auto-radius
+  @category images
+  @description Image with conditional border-radius: circular when it fits, rectangular when it overflows. Pure CSS, no JS.
+  @usage <x-auto-radius src="photo.jpg" radius="50px"></x-auto-radius>
+  @impl Uses CSS container queries (cqi) and clamp() to detect overflow. Based on Ahmad Shadeed's technique (https://ishadeed.com/article/conditional-border-radius/).
+-->
+<template radius:string="50px">
+<style>
+  :host { display: block }
+  img {
+    display: block;
+    max-inline-size: 100%;
+    inline-size: 100%;
+    object-fit: cover;
+    container-type: inline-size;
+    border-radius: clamp(0px, (100cqi - 100%) * 1e5, var(--r, 50px));
+  }
+</style>
+<img>
+
+<script>
+const host = this
+const el = host.el
+const img = el.querySelector('img')
+
+function apply() {
+  const r = host.radius || el.getAttribute('radius') || '50px'
+  img.style.setProperty('--r', r)
+}
+
+host.onpropchange = (n) => { if (n === 'radius') apply() }
+host.onconnected = apply
+</script>
+</template>
