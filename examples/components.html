@@ -827,6 +827,27 @@ _.mount();</x-code-highlight>
       </div>
 
       <div class="demo">
+        <h3>ws-connect</h3>
+        <p class="usage">&lt;ws-connect url="wss://echo.websocket.events" :on.message="…"&gt;</p>
+        <p class="note">WebSocket client with auto-reconnect (3s). The <code>:on.message</code> handler receives the raw <code>MessageEvent</code> — use <code>$event.data</code> for the payload (string, JSON, or HTML).</p>
+        <div class="stage" style="max-width:100%">
+          <ws-connect url="wss://echo.websocket.events"
+            :on.ws-open="_.wsOpen($event.detail.socket)"
+            :on.message="_.wsLog += '← ' + $event.data + '\n'"
+            :on.ws-close="_.wsOk = false; _.wsLog += '[reconnecting…]\n'"></ws-connect>
+          <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+            <span :if="_.wsOk" style="color:#2da44e">● Connected</span>
+            <span :else style="color:#cf222e">● Disconnected</span>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <input type="text" :model="wsMsg" placeholder="Type a message…" :on.keydown="event.key === 'Enter' && _.wsSend()">
+            <button :on.click="_.wsSend()">Send</button>
+          </div>
+          <pre style="background:light-dark(#f6f8fa,#161b22);color:light-dark(#24292f,#e6edf3);padding:.75rem;border-radius:8px;max-height:150px;overflow:auto;font-size:.8em;margin-top:.5rem;white-space:pre-wrap" ::="_.wsLog"></pre>
+        </div>
+      </div>
+
+      <div class="demo">
         <h3>sticky-sidebar</h3>
         <p class="usage">&lt;sticky-sidebar style="width:280px"&gt;…&lt;/sticky-sidebar&gt;</p>
         <div class="stage">
@@ -981,6 +1002,12 @@ A **micro** framework for HTML-first components.
       rn: 1234,
       label: "today",
       haceMinutos: new Date(Date.now() - 5 * 60000).toISOString(),
+      wsMsg: '',
+      wsOk: false,
+      ws: null,
+      wsLog: '',
+      wsOpen(socket) { _.ws = socket; _.wsOk = true; _.wsLog += '[connected]\n' },
+      wsSend() { if (_.ws && _.wsMsg.trim()) { _.ws.send(_.wsMsg); _.wsLog += '→ ' + _.wsMsg + '\n'; _.wsMsg = '' } },
 
       saAppend() {
           document.body.insertAdjacentHTML('beforeend', '<server-action action="append" target="#sa-list"><li>New row</li></server-action>');
