@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="How Menut compares to Alpine, Petite-Vue, htmx, Fixi, and the HTML-first ecosystem.">
+<title>Comparison with other frameworks</title>
+<style>
+  @import url(https://weblin.org/css.css);
+  @view-transition { navigation: auto; }
+  @keyframes scale-down { to { transform: scale(0.8); opacity: 0; } }
+  @keyframes scale-up { from { transform: scale(1.2); opacity: 0; } }
+  ::view-transition-old(root) { animation: 350ms cubic-bezier(0.4, 0, 0.2, 1) both scale-down; }
+  ::view-transition-new(root) { animation: 350ms cubic-bezier(0.4, 0, 0.2, 1) both scale-up; }
+  body { max-width: 62rem; margin: 3rem auto; padding: 0 1rem; }
+  h1 { margin-bottom: .25rem; }
+  .subtitle { color: var(--fg-muted); margin-top: 0; }
+  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--hairline); padding-bottom: .3rem; }
+  h3 { margin-top: 1.5rem; }
+  code { font: 400 0.85em/1.5 'SF Mono', 'Fira Code', monospace; }
+  p code, li code { background: light-dark(#f0f2f5, #21262d); padding: 1px 5px; border-radius: 4px; }
+  .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82em;
+    min-width: 700px;
+  }
+  th, td {
+    text-align: left;
+    padding: .5rem .6rem;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+  th { font-weight: 600; white-space: nowrap; }
+  td:first-child { font-weight: 500; white-space: nowrap; }
+  .y { color: light-dark(#2da44e, #3fb950); }
+  .n  { color: light-dark(#cf222e, #f85149); }
+  .w { color: light-dark(#bf8700, #d29922); }
+  .back { margin-bottom: 2rem; }
+  .note {
+    background: light-dark(#f0f2f5, #21262d);
+    padding: .75rem 1rem;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    font-size: 0.9em;
+  }
+</style>
+</head>
+<body>
+
+<p class="back"><a href="../index.html">&larr; Menut</a> &middot; <a href="article.html">&larr; Inside Menut</a></p>
+
+<article>
+
+<h1>Weblin &amp; Menut vs. the HTML-first landscape</h1>
+<p class="subtitle">An honest comparison. No framework wins everything &mdash; each makes specific trade-offs.</p>
+
+<p>Weblin isn't the only project betting against the build-step, virtual-DOM default. This page places it honestly next to the closest relatives, so you can pick the right tool &mdash; or see exactly why Weblin exists.</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Weblin (CSS)</th>
+      <th>Menut</th>
+      <th>Fixi</th>
+      <th>htmx</th>
+      <th>Alpine.js</th>
+      <th>Petite-Vue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Category</td>
+      <td>Classless CSS framework</td>
+      <td>Reactive micro-framework</td>
+      <td>Hypermedia micro-lib</td>
+      <td>Hypermedia library</td>
+      <td>Reactive directives</td>
+      <td>Reactive micro-framework</td>
+    </tr>
+    <tr>
+      <td>Build step</td>
+      <td class="y">None</td>
+      <td class="y">None</td>
+      <td class="y">None</td>
+      <td class="y">None</td>
+      <td class="y">None</td>
+      <td class="y">None</td>
+    </tr>
+    <tr>
+      <td>State model</td>
+      <td>&mdash;</td>
+      <td>Single <code>window._</code></td>
+      <td>Server-driven</td>
+      <td>Server-driven</td>
+      <td>Per-component <code>x-data</code></td>
+      <td>Per-component <code>v-scope</code></td>
+    </tr>
+    <tr>
+      <td>Reactivity</td>
+      <td>&mdash;</td>
+      <td>Granular (Proxy)</td>
+      <td>None (server round-trip)</td>
+      <td>None (server round-trip)</td>
+      <td>Proxy-based</td>
+      <td>Proxy-based (Vue 3)</td>
+    </tr>
+    <tr>
+      <td>Components</td>
+      <td>Declarative Shadow DOM</td>
+      <td><code>define-component</code>, SFC</td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td>Alpine components</td>
+      <td>Vue-like SFC subset</td>
+    </tr>
+    <tr>
+      <td>Dependencies</td>
+      <td class="y">Zero</td>
+      <td class="y">Zero</td>
+      <td class="y">Zero</td>
+      <td class="y">Zero</td>
+      <td class="y">Zero</td>
+      <td class="w">Vue reactivity core</td>
+    </tr>
+    <tr>
+      <td>Native HTML5</td>
+      <td class="y"><code>dialog</code>, <code>popover</code>, view-transitions</td>
+      <td class="y">Inherits Weblin</td>
+      <td class="w">Partial</td>
+      <td class="n">Own DSL</td>
+      <td class="w">Partial</td>
+      <td class="w">Partial</td>
+    </tr>
+    <tr>
+      <td>CSP</td>
+      <td class="w">Needs <code>unsafe-eval</code></td>
+      <td class="w">Needs <code>unsafe-eval</code></td>
+      <td class="y">Clean</td>
+      <td class="y">Clean</td>
+      <td class="w">Needs <code>unsafe-eval</code></td>
+      <td class="w">Needs <code>unsafe-eval</code></td>
+    </tr>
+    <tr>
+      <td>Best for</td>
+      <td>Zero-JS UI chrome, semantic styling</td>
+      <td>Client-side state without a compiler</td>
+      <td>Ultra-minimal AJAX</td>
+      <td>Server-rendered apps</td>
+      <td>Sprinkles of interactivity</td>
+      <td>Small reactive widgets</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Where Weblin + Menut sit</h2>
+
+<h3>Against Fixi / htmx</h3>
+<p>Those are hypermedia-first &mdash; the server owns state, the client just swaps HTML fragments. Weblin+Menut assume the state sometimes needs to live in the browser (a form wizard, a filter panel, a local counter) without asking the server for permission. Menut is closer to Petite-Vue in intent, but rejects Vue's reactivity core as a dependency and rejects the SFC-with-compiler pattern in favor of native <code>&lt;script&gt;</code> tags the browser already understands.</p>
+
+<h3>Against Alpine / Petite-Vue</h3>
+<p>Same territory (attribute-driven reactivity, no build), but Menut is a single file with <code>window._</code> as one flat, inspectable source of truth, rather than N isolated <code>x-data</code> / <code>v-scope</code> islands. Trade-off: less encapsulation, more transparency &mdash; you can open devtools and read the entire app state in one place.</p>
+
+<h3>Honest weaknesses</h3>
+<div class="note">
+  <p><strong>The <code>unsafe-eval</code> requirement</strong> rules Weblin/Menut out for strict-CSP environments (banking, gov, some enterprise). Fixi/htmx don't have this problem. This is a real trade-off, not a footnote &mdash; say it plainly rather than let someone discover it in production.</p>
+  <p>A CSP-strict variant is technically possible (~250 lines of expression parser). See <a href="../docs/csp.html">CSP compatibility</a> for the full analysis.</p>
+</div>
+
+</article>
+
+<footer style="margin-top:3rem; padding-top:1rem; border-top:1px solid var(--hairline); color:var(--fg-muted); font-size:0.85em;">
+  <p><a href="../index.html">&larr; Menut</a> &middot; <a href="article.html">Inside Menut &rarr;</a></p>
+</footer>
+
+</body>
+</html>

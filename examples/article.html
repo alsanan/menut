@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Why Menut exists: reactivity without a compiler, state without encapsulation, and the trade-offs in between.">
+<title>Inside Menut: reactivity without a compiler</title>
+<style>
+  @import url(https://weblin.org/css.css);
+  @view-transition { navigation: auto; }
+  @keyframes scale-down { to { transform: scale(0.8); opacity: 0; } }
+  @keyframes scale-up { from { transform: scale(1.2); opacity: 0; } }
+  ::view-transition-old(root) { animation: 350ms cubic-bezier(0.4, 0, 0.2, 1) both scale-down; }
+  ::view-transition-new(root) { animation: 350ms cubic-bezier(0.4, 0, 0.2, 1) both scale-up; }
+  body { max-width: 52rem; margin: 3rem auto; padding: 0 1rem; }
+  h1 { margin-bottom: .25rem; }
+  .subtitle { color: var(--fg-muted); margin-top: 0; }
+  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--hairline); padding-bottom: .3rem; }
+  pre {
+    background: light-dark(#f6f8fa, #161b22);
+    color: light-dark(#24292f, #e6edf3);
+    padding: 1rem;
+    border-radius: 10px;
+    overflow-x: auto;
+    font: 400 0.85em/1.5 'SF Mono', 'Fira Code', monospace;
+    tab-size: 2;
+  }
+  code { font: 400 0.85em/1.5 'SF Mono', 'Fira Code', monospace; }
+  p code, li code { background: light-dark(#f0f2f5, #21262d); padding: 1px 5px; border-radius: 4px; }
+  blockquote {
+    border-left: 3px solid var(--hairline);
+    padding: .5rem 1rem;
+    margin: 1rem 0;
+    color: var(--fg-muted);
+    font-style: italic;
+  }
+  .back { margin-bottom: 2rem; }
+</style>
+</head>
+<body>
+
+<p class="back"><a href="../index.html">&larr; Menut</a> · <a href="comparison.html">Comparison with other frameworks &rarr;</a></p>
+
+<article>
+
+<h1>Inside Menut: reactivity without a compiler</h1>
+<p class="subtitle">Why the framework exists, how it works, and what it chose to give up.</p>
+
+<p>Menut is Weblin's answer to a specific question: what if a page needs real client-side state — a wizard, a filtered list, a counter — but you still refuse a build step? Here's how it's built, and why.</p>
+
+<h2>One file, one object: <code>window._</code></h2>
+
+<p>Every other reactive micro-framework isolates state per component (<code>x-data</code> in Alpine, <code>v-scope</code> in Petite-Vue). Menut puts all of it in a single global, <code>window._</code>.</p>
+
+<p>This is a deliberate rejection of encapsulation-by-default. The trade-off is real: a global namespace can collide, and it doesn't enforce component boundaries the way scoped state does. What it buys back: you can open devtools, type <code>_</code>, and see the <em>entire</em> application state in one object — no hunting through DOM nodes to find where a value lives. For small-to-medium apps (the ones Menut targets — it's explicitly not trying to replace Vue/React for large SPAs), that transparency is worth more than the isolation.</p>
+
+<h2>Granular reactivity, not a virtual DOM</h2>
+
+<p>When a value in <code>window._</code> changes, Menut updates only the DOM nodes bound to that value — no diffing, no re-render pass, no virtual tree to reconcile.</p>
+
+<p>This is the same fine-grained approach Vue 3's reactivity core and Solid popularized, but implemented directly rather than imported. Petite-Vue gets this by depending on <code>@vue/reactivity</code>; Menut rewrites the essence of it in-file so there's no dependency to vendor, version, or audit. The cost of that choice is maintenance burden on the Menut side — every edge case Vue's reactivity team already solved has to be re-solved here. The benefit is a single file with zero supply-chain surface.</p>
+
+<h2><code>define-components</code>: declarative, with a build-free escape hatch</h2>
+
+<p>Components can be defined inline in the page or as external Single File Components — but "SFC" here means an HTML file with a <code>&lt;script&gt;</code> and a <code>&lt;template&gt;</code>, not a compiled <code>.vue</code> file. The browser parses it; nothing transforms it first.</p>
+
+<p>This is where the <a href="../docs/csp.html"><code>unsafe-eval</code></a> requirement comes from: component <code>&lt;script&gt;</code> blocks and binding expressions execute via <code>new Function</code>, because there's no compile step to turn them into safe, pre-analyzed code ahead of time. It's an honest trade — say so up front, since it's the one real adoption blocker for CSP-strict environments.</p>
+
+<h2>Why not just use Alpine or Petite-Vue?</h2>
+
+<p>Both are excellent and mature. The reason to reach for Menut instead is philosophical as much as technical: it's built to be <em>read</em>, not just used — small enough that a developer can audit the entire reactivity implementation in the time it takes to read one file, rather than trusting an external dependency's internals. If that's not a priority for your project, Alpine or Petite-Vue are equally valid, more battle-tested choices — and the <a href="comparison.html">next comparison table</a> makes that trade-off explicit rather than pretending Menut is strictly better.</p>
+
+<blockquote>
+  <p>A framework you can read is a framework you can trust. A framework you can't read is a framework you depend on.</p>
+</blockquote>
+
+</article>
+
+<footer style="margin-top:3rem; padding-top:1rem; border-top:1px solid var(--hairline); color:var(--fg-muted); font-size:0.85em;">
+  <p><a href="../index.html">&larr; Menut</a> · <a href="comparison.html">Comparison &rarr;</a></p>
+</footer>
+
+</body>
+</html>
