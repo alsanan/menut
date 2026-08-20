@@ -25,9 +25,6 @@
     white-space: pre-wrap;
     word-break: break-all;
   }
-  .log .sent { color: light-dark(#0550ae, #79c0ff); }
-  .log .recv { color: light-dark(#116329, #7ee787); }
-  .log .sys  { color: light-dark(#656d76, #8b949e); font-style: italic; }
   .row { display: flex; gap: .5rem; margin: 1rem 0; }
   .row input { flex: 1; }
   .examples { margin-top: 2rem; }
@@ -40,7 +37,7 @@
 <h1>WebSocket demo</h1>
 <p>Uses <code>wss://echo.websocket.events</code> — every message sent is echoed back.</p>
 
-<ws-connect url="wss://echo.websocket.events"
+<ws-connect url="wss://echo.websocket.events" :ref="ws"
   :on.message="_.onMessage($event)"
   :on.ws-open="_.onOpen()"
   :on.ws-close="_.onClose()"></ws-connect>
@@ -52,7 +49,7 @@
 </div>
 
 <div class="row">
-  <input type="text" :model="msg" placeholder="Type a message…" :onkeydown="event.key === 'Enter' && _.send()">
+  <input type="text" :model="msg" placeholder="Type a message…" :on.keydown="event.key === 'Enter' && _.send()">
   <button :on.click="_.send()">Send</button>
 </div>
 
@@ -77,8 +74,9 @@
 &lt;/ws-connect&gt;</code></pre>
 
   <h3>With send()</h3>
-  <p><code>send()</code> is a method on the component state. Call it from any <code>:on.*</code> handler:</p>
-  <pre><code>&lt;button :on.click="ws.send('hello')"&gt;Send&lt;/button&gt;</code></pre>
+  <p>Use <code>:ref</code> to get a reference, then call <code>.send()</code> on the element:</p>
+  <pre><code>&lt;ws-connect url="wss://..." :ref="ws"&gt;&lt;/ws-connect&gt;
+&lt;button :on.click="ws.send('hello')"&gt;Send&lt;/button&gt;</code></pre>
 
   <h3>Message event</h3>
   <p>The <code>:on.message</code> handler receives the raw <code>MessageEvent</code>. Access the data via <code>$event.data</code>:</p>
@@ -111,18 +109,20 @@ window._ = {
 
   send() {
     if (!_.msg.trim()) return
-    _.sendText(_.msg)
+    _.ref.ws.send(_.msg)
+    _.log += '→ ' + _.msg + '\n'
     _.msg = ''
   },
 
   sendText(text) {
-    const el = document.querySelector('ws-connect')
-    if (el && el._) el._.send(text)
+    _.ref.ws.send(text)
+    _.log += '→ ' + text + '\n'
   },
 
   sendJSON(obj) {
-    const el = document.querySelector('ws-connect')
-    if (el && el._) el._.send(JSON.stringify(obj))
+    const str = JSON.stringify(obj)
+    _.ref.ws.send(str)
+    _.log += '→ ' + str + '\n'
   },
 
   onOpen() {

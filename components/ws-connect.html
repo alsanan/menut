@@ -1,9 +1,9 @@
 <!--
   @component ws-connect
   @category content
-  @description WebSocket client with auto-reconnect. Exposes send() and receives :on.message events with the raw MessageEvent. Messages can be JSON, plain text, or HTML.
+  @description WebSocket client with auto-reconnect. Exposes send() via :on.ws-send event. Messages can be JSON, plain text, or HTML.
   @usage <ws-connect url="wss://echo.websocket.events" :on.message="handle($event)"></ws-connect>
-  @impl Creates a WebSocket. Auto-reconnects every 3s on close. Exposes send(data) on host state. Dispatches ws-open, ws-message, ws-close, ws-error CustomEvents. Cleans up via this.signal.
+  @impl Creates a WebSocket. Auto-reconnects every 3s on close. Dispatches ws-open, ws-message, ws-close, ws-error CustomEvents. Cleans up via this.signal.
 -->
 <template shadowrootmode="open" url:string="">
 <style>:host { display: none; }</style>
@@ -45,7 +45,7 @@ function connect() {
   }, { signal: host.signal })
 }
 
-host.send = (data) => {
+el.send = (data) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(typeof data === 'string' ? data : JSON.stringify(data))
   }
