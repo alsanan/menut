@@ -195,6 +195,10 @@
       <a href="#tests">Test suite</a>
       <a href="test/index.html">Open test &rarr;</a>
 
+      <div class="head">Motivation</div>
+      <a href="examples/article.html">Inside Menut &rarr;</a>
+      <a href="examples/comparison.html">Comparison &rarr;</a>
+
       <div class="head">Analysis</div>
       <a href="#anatomy">Code anatomy</a>
       <a href="menut-viz.html">Visualization &rarr;</a>
@@ -577,6 +581,25 @@ _.remove = (index)=> { _.tasks.splice(index, 1); }
           <button fab class="md-close" commandfor="contenido" command="close" aria-label="Close" title="Close">×</button>
           <div id="contenido-body"></div>
         </dialog>
+      </section>
+
+      <hr>
+
+      <section id="motivation">
+        <h2>Motivation</h2>
+        <p>Why Menut exists, how it compares to the alternatives, and the trade-offs it chose.</p>
+        <div card-grid>
+          <article>
+            <h3>Inside Menut</h3>
+            <p>Reactivity without a compiler. One global object, granular updates, and the <code>unsafe-eval</code> decision explained.</p>
+            <a href="examples/article.html"><button primary>Read &rarr;</button></a>
+          </article>
+          <article>
+            <h3>Comparison table</h3>
+            <p>Menut vs. Alpine, Petite-Vue, htmx, Fixi — honest trade-offs, no framework wins everything.</p>
+            <a href="examples/comparison.html"><button primary>Compare &rarr;</button></a>
+          </article>
+        </div>
       </section>
 
       <hr>
