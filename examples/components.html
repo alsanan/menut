@@ -828,16 +828,20 @@ _.mount();</x-code-highlight>
 
       <div class="demo">
         <h3>ws-connect</h3>
-        <p class="usage">&lt;ws-connect url="wss://echo.websocket.events" :on.message="…"&gt;</p>
+        <p class="usage">&lt;ws-connect url="wss://echo.rapidtoolset.com/ws" :on.message="…"&gt;</p>
         <p class="note">WebSocket client with auto-reconnect (3s). The <code>:on.message</code> handler receives the raw <code>MessageEvent</code> — use <code>$event.data</code> for the payload (string, JSON, or HTML).</p>
         <div class="stage" style="max-width:100%">
-          <ws-connect url="wss://echo.websocket.events"
+          <ws-connect url="wss://echo.rapidtoolset.com/ws"
             :on.ws-open="_.wsOpen($event.detail.socket)"
             :on.message="_.wsLog += '← ' + $event.data + '\n'"
             :on.ws-close="_.wsOk = false; _.wsLog += '[reconnecting…]\n'"></ws-connect>
           <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
-            <span :if="_.wsOk" style="color:#2da44e">● Connected</span>
-            <span :else style="color:#cf222e">● Disconnected</span>
+            <template :if="_.wsOk">
+              <span style="color:#2da44e">● Connected</span>
+            </template>
+            <template :else>
+              <span style="color:#cf222e">● Disconnected</span>
+            </template>
           </div>
           <div style="display:flex;gap:.5rem">
             <input type="text" :model="wsMsg" placeholder="Type a message…" :on.keydown="event.key === 'Enter' && _.wsSend()">
