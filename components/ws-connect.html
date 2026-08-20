@@ -2,7 +2,7 @@
   @component ws-connect
   @category content
   @description WebSocket client with auto-reconnect. Dispatches ws-open, ws-message, ws-close, ws-error events. Messages can be JSON, plain text, or HTML.
-  @usage <ws-connect url="wss://echo.websocket.events" :on.message="handle($event)"></ws-connect>
+  @usage <ws-connect url="wss://echo.rapidtoolset.com/ws" :on.message="handle(event.data)"></ws-connect>
   @impl Creates a WebSocket. Auto-reconnects every 3s on close. Cleans up via this.signal.
 -->
 <template shadowrootmode="open" url:string="">

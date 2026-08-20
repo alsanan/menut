@@ -2,7 +2,7 @@
   @component sse-connect
   @category content
   @description Opens a Server-Sent Events connection to `src`. Dispatches a `receive` CustomEvent for every message; if the `append` attribute is present, inserts the message data as HTML after the component. Useful for pushing <server-action> fragments from the backend.
-  @usage <sse-connect src="/events" :on.receive="log($event.detail.data)"></sse-connect> · <sse-connect src="stream.php" append></sse-connect>
+  @usage <sse-connect src="/events" :on.receive="log(event.detail.data)"></sse-connect> · <sse-connect src="stream.php" append></sse-connect>
   @impl Creates an EventSource. Emits `receive` (detail.data), `sse-open` and `sse-error`. Closes on disconnect via this.signal.
 -->
 <template shadowrootmode="open" src:string="" append:boolean="false">
