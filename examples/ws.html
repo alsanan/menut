@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Menut · WebSocket demo</title>
+<style>
+  @import url(https://weblin.org/css.css);
+  body { max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+  .status { display: inline-flex; align-items: center; gap: .4rem; font: 500 0.85rem/1 sans-serif; padding: .3rem .7rem; border-radius: 20px; }
+  .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+  .status.connected { background: #2da44e22; color: #2da44e; }
+  .status.connected::before { background: #2da44e; }
+  .status.disconnected { background: #cf222e22; color: #cf222e; }
+  .status.disconnected::before { background: #cf222e; }
+  .log {
+    background: light-dark(#f6f8fa, #161b22);
+    color: light-dark(#24292f, #e6edf3);
+    border-radius: 10px;
+    padding: 1rem;
+    font: 400 0.8em/1.6 'SF Mono', 'Fira Code', monospace;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .log .sent { color: light-dark(#0550ae, #79c0ff); }
+  .log .recv { color: light-dark(#116329, #7ee787); }
+  .log .sys  { color: light-dark(#656d76, #8b949e); font-style: italic; }
+  .row { display: flex; gap: .5rem; margin: 1rem 0; }
+  .row input { flex: 1; }
+  .examples { margin-top: 2rem; }
+  .examples h3 { margin-bottom: .5rem; }
+  .examples button { margin-right: .5rem; margin-bottom: .5rem; }
+</style>
+</head>
+<body>
+
+<h1>WebSocket demo</h1>
+<p>Uses <code>wss://echo.websocket.events</code> — every message sent is echoed back.</p>
+
+<ws-connect url="wss://echo.websocket.events"
+  :on.message="_.onMessage($event)"
+  :on.ws-open="_.onOpen()"
+  :on.ws-close="_.onClose()"></ws-connect>
+
+<div class="row">
+  <span class="status disconnected" ::="_.connected ? 'connected' : 'disconnected'">
+    <span ::="_.connected ? 'Connected' : 'Disconnected'"></span>
+  </span>
+</div>
+
+<div class="row">
+  <input type="text" :model="msg" placeholder="Type a message…" :onkeydown="event.key === 'Enter' && _.send()">
+  <button :on.click="_.send()">Send</button>
+</div>
+
+<div class="log" ::="_.log"></div>
+
+<div class="examples">
+  <h3>Quick examples</h3>
+  <button :on.click="_.sendText('Hello WebSocket!')">Plain text</button>
+  <button :on.click="_.sendJSON({ action: 'ping', ts: Date.now() })">Send JSON</button>
+  <button :on.click="_.sendText('<b style=color:green>Hello HTML</b>')">Send HTML</button>
+</div>
+
+<hr>
+
+<section>
+  <h2>Usage</h2>
+  <p>The <code>&lt;ws-connect&gt;</code> component manages the WebSocket lifecycle. It auto-reconnects every 3 seconds on disconnect.</p>
+
+  <h3>Basic</h3>
+  <pre><code>&lt;ws-connect url="wss://echo.websocket.events"
+  :on.message="handle($event)"&gt;
+&lt;/ws-connect&gt;</code></pre>
+
+  <h3>With send()</h3>
+  <p><code>send()</code> is a method on the component state. Call it from any <code>:on.*</code> handler:</p>
+  <pre><code>&lt;button :on.click="ws.send('hello')"&gt;Send&lt;/button&gt;</code></pre>
+
+  <h3>Message event</h3>
+  <p>The <code>:on.message</code> handler receives the raw <code>MessageEvent</code>. Access the data via <code>$event.data</code>:</p>
+  <pre><code>:on.message="_.log += $event.data + '\n'"</code></pre>
+
+  <h3>JSON parsing</h3>
+  <p>Parse incoming JSON inside the handler:</p>
+  <pre><code>:on.message="_.data = JSON.parse($event.data)"</code></pre>
+
+  <h3>HTML injection</h3>
+  <p>If the server sends HTML, inject it carefully:</p>
+  <pre><code>:on.message="_.container.innerHTML = $event.data"</code></pre>
+
+  <h3>Events</h3>
+  <table>
+    <tr><th>Event</th><th>Detail</th><th>Fired when</th></tr>
+    <tr><td><code>ws-open</code></td><td><code>{ url }</code></td><td>Connection established</td></tr>
+    <tr><td><code>ws-message</code></td><td><code>MessageEvent</code></td><td>Message received</td></tr>
+    <tr><td><code>ws-close</code></td><td><code>{ url }</code></td><td>Connection closed (auto-reconnects)</td></tr>
+    <tr><td><code>ws-error</code></td><td><code>{ event, url }</code></td><td>WebSocket error</td></tr>
+  </table>
+</section>
+
+<script src="../menut.js?v=99"></script>
+<script>
+window._ = {
+  msg: '',
+  log: '',
+  connected: false,
+
+  send() {
+    if (!_.msg.trim()) return
+    _.sendText(_.msg)
+    _.msg = ''
+  },
+
+  sendText(text) {
+    const el = document.querySelector('ws-connect')
+    if (el && el._) el._.send(text)
+  },
+
+  sendJSON(obj) {
+    const el = document.querySelector('ws-connect')
+    if (el && el._) el._.send(JSON.stringify(obj))
+  },
+
+  onOpen() {
+    _.connected = true
+    _.log += '[connected]\n'
+  },
+
+  onClose() {
+    _.connected = false
+    _.log += '[disconnected — reconnecting…]\n'
+  },
+
+  onMessage(event) {
+    _.log += '← ' + event.data + '\n'
+  }
+};
+
+_.mount();
+</script>
+</body>
+</html>

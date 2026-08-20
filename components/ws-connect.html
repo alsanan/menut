@@ -1,0 +1,61 @@
+<!--
+  @component ws-connect
+  @category content
+  @description WebSocket client with auto-reconnect. Exposes send() and receives :on.message events with the raw MessageEvent. Messages can be JSON, plain text, or HTML.
+  @usage <ws-connect url="wss://echo.websocket.events" :on.message="handle($event)"></ws-connect>
+  @impl Creates a WebSocket. Auto-reconnects every 3s on close. Exposes send(data) on host state. Dispatches ws-open, ws-message, ws-close, ws-error CustomEvents. Cleans up via this.signal.
+-->
+<template shadowrootmode="open" url:string="">
+<style>:host { display: none; }</style>
+<script>
+const host = this
+const el = host.el
+const RECONNECT_MS = 3000
+let ws = null
+let closed = false
+
+function connect() {
+  if (closed) return
+  const url = host.url || el.getAttribute('url')
+  if (!url) return
+
+  try {
+    ws = new WebSocket(url)
+  } catch (e) {
+    console.error('[ws-connect] failed to create WebSocket for', url, e)
+    return
+  }
+
+  ws.addEventListener('open', () => {
+    el.dispatchEvent(new CustomEvent('ws-open', { bubbles: true, composed: true, detail: { url } }))
+  }, { signal: host.signal })
+
+  ws.addEventListener('message', (event) => {
+    el.dispatchEvent(new CustomEvent('ws-message', { bubbles: true, composed: true, detail: event }))
+  }, { signal: host.signal })
+
+  ws.addEventListener('close', () => {
+    el.dispatchEvent(new CustomEvent('ws-close', { bubbles: true, composed: true, detail: { url } }))
+    ws = null
+    setTimeout(connect, RECONNECT_MS)
+  }, { signal: host.signal })
+
+  ws.addEventListener('error', (event) => {
+    el.dispatchEvent(new CustomEvent('ws-error', { bubbles: true, composed: true, detail: { event, url } }))
+  }, { signal: host.signal })
+}
+
+host.send = (data) => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(typeof data === 'string' ? data : JSON.stringify(data))
+  }
+}
+
+host._cleanup = () => {
+  closed = true
+  if (ws) { ws.close(); ws = null }
+}
+
+connect()
+</script>
+</template>
