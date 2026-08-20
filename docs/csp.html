@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Menut · CSP Compatibility</title>
+<style>
+  @import url(https://weblin.org/css.css);
+  body { max-width: 52rem; margin: 3rem auto; padding: 0 1rem; }
+  h1 { margin-bottom: .25rem; }
+  .subtitle { color: var(--fg-muted); margin-top: 0; }
+  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--hairline); padding-bottom: .3rem; }
+  h3 { margin-top: 1.5rem; }
+  pre {
+    background: light-dark(#f6f8fa, #161b22);
+    color: light-dark(#24292f, #e6edf3);
+    padding: 1rem;
+    border-radius: 10px;
+    overflow-x: auto;
+    font: 400 0.85em/1.5 'SF Mono', 'Fira Code', monospace;
+    tab-size: 2;
+  }
+  code { font: 400 0.85em/1.5 'SF Mono', 'Fira Code', monospace; }
+  p code, li code { background: light-dark(#f0f2f5, #21262d); padding: 1px 5px; border-radius: 4px; }
+  .warn {
+    background: light-dark(#fff8e1, #3d2e00);
+    border-left: 3px solid light-dark(#f9a825, #fdd835);
+    padding: .75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+  }
+  .info {
+    background: light-dark(#e3f2fd, #0d2137);
+    border-left: 3px solid light-dark(#1976d2, #64b5f6);
+    padding: .75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--hairline); }
+  th { font-weight: 600; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font: 600 0.7rem/1.4 sans-serif; }
+  .tag--hard { background: #cf222e22; color: #cf222e; }
+  .tag--medium { background: #bf870022; color: #bf8700; }
+  .tag--easy { background: #2da44e22; color: #2da44e; }
+</style>
+</head>
+<body>
+
+<h1>CSP Compatibility</h1>
+<p class="subtitle">What would change to make Menut work without <code>unsafe-eval</code></p>
+
+<div class="info">
+  <strong>This is a reference document, not a roadmap.</strong> Menut deliberately chose <code>new Function()</code> for simplicity. This page documents what a CSP-strict build would require, for whoever needs it in the future.
+</div>
+
+<h2>Why <code>unsafe-eval</code>?</h2>
+<p>Menut compiles HTML expressions into JavaScript functions at runtime using the <code>new Function()</code> constructor. This requires <code>script-src 'unsafe-eval'</code> in Content Security Policy.</p>
+<p>The decision was intentional: it keeps the framework tiny (~13 kb), the API simple (write expressions directly in HTML), and avoids a build step. Alternatives exist but add complexity.</p>
+
+<h2>Where <code>new Function</code> is used</h2>
+<table>
+  <tr><th>#</th><th>Function</th><th>Compiles</th><th>Line</th><th>Difficulty</th></tr>
+  <tr>
+    <td>1</td>
+    <td><code>compile()</code></td>
+    <td>Reactive expressions: <code>:if</code>, <code>:text</code>, <code>:class</code>, <code>:attr</code>, interpolations</td>
+    <td>314</td>
+    <td><span class="tag tag--medium">Medium</span></td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><code>compileEvent()</code></td>
+    <td>Event handlers: <code>:on.click="count++"</code></td>
+    <td>343</td>
+    <td><span class="tag tag--easy">Easy</span></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><code>compileAssign()</code></td>
+    <td>Two-way binding: <code>:model="name"</code></td>
+    <td>360</td>
+    <td><span class="tag tag--easy">Easy</span></td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><code>boot()</code></td>
+    <td>SFC <code>&lt;script&gt;</code> blocks</td>
+    <td>1317</td>
+    <td><span class="tag tag--hard">Hard</span></td>
+  </tr>
+</table>
+
+<h2>Proposed changes</h2>
+
+<h3>1. Expression parser (<code>compile</code>) <span class="tag tag--medium">Medium</span></h3>
+<p>Replace <code>new Function("context", `with (context) { return (${expr}); }`)</code> with a hand-written parser that walks the expression AST and resolves identifiers against the context.</p>
+
+<p><strong>What it needs to support:</strong></p>
+<ul>
+  <li>Property access: <code>count</code>, <code>item.name</code>, <code>item._index</code></li>
+  <li>Literals: <code>"string"</code>, <code>42</code>, <code>true</code>, <code>null</code>, <code>[]</code>, <code>{}</code></li>
+  <li>Operators: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, <code>></code>, <code>&lt;</code>, <code>===</code>, <code>!==</code>, <code>&&</code>, <code>||</code>, <code>!</code>, <code>??</code>, <code>?:</code></li>
+  <li>Method calls: <code>incrementar()</code>, <code>toggle(item)</code>, <code>items.filter(i => i.done).length</code></li>
+  <li>Template literals inside expressions (if any)</li>
+</ul>
+
+<p><strong>What it can drop:</strong></p>
+<ul>
+  <li><code>with</code> statement (the parser resolves names explicitly)</li>
+  <li>Arbitrary JS (no <code>for</code>, <code>import</code>, <code>class</code> inside expressions)</li>
+</ul>
+
+<p><strong>Estimated size:</strong> ~150-200 lines (vs current 5 lines for <code>compile</code>).</p>
+
+<p><strong>Current code:</strong></p>
+<pre><code>function compile(expression) {
+    return cached(expression, () =>
+        new Function("context", `with (context) { return (${expression}); }`));
+}</code></pre>
+
+<p><strong>CSP version:</strong></p>
+<pre><code>function compile(expression) {
+    return cached(expression, () => parseExpression(expression));
+}
+
+// parseExpression returns a function(ctx) that walks the AST
+// and resolves identifiers via ctx[property] lookups.
+// Example: parseExpression("count > 0") returns:
+//   (ctx) => ctx.count > 0
+// Example: parseExpression("item.name") returns:
+//   (ctx) => ctx.item.name</code></pre>
+
+<h3>2. Event handler compiler (<code>compileEvent</code>) <span class="tag tag--easy">Easy</span></h3>
+<p>Restrict event handler syntax to <strong>single function calls only</strong>. No arbitrary JS expressions.</p>
+
+<p><strong>Current (unrestricted):</strong></p>
+<pre><code>:on.click="event.preventDefault(); count++"
+:on.click="await save(item)"
+:on.click="if (ok) confirm()"</code></pre>
+
+<p><strong>CSP version (function calls only):</strong></p>
+<pre><code>:on.click="handleClick(event)"
+:on.click="save(item)"
+:on.click="confirm()"</code></pre>
+
+<p><strong>Implementation:</strong> Parse the expression as a function call (<code>identifier(args)</code>), resolve the function name from context, and invoke it. Reject anything that isn't a simple call.</p>
+
+<pre><code>// Current
+function compileEvent(expression) {
+    return cached("await " + expression, () =>
+        new Function("context",
+            `return (async () => { with (context) { ${expression} } })();`));
+}
+
+// CSP version
+function compileEvent(expression) {
+    return cached("await " + expression, () => {
+        const match = expression.match(/^(\w+(?:\.\w+)*)\((.*)\)$/s);
+        if (!match) throw new Error(`CSP: event handler must be a function call: ${expression}`);
+        const [, name, args] = match;
+        return (ctx) => {
+            const fn = resolvePath(ctx, name);
+            const argVals = args.trim() ? evalArgs(args, ctx) : [];
+            return fn.apply(ctx.el, argVals);
+        };
+    });
+}</code></pre>
+
+<h3>3. Assignment compiler (<code>compileAssign</code>) <span class="tag tag--easy">Easy</span></h3>
+<p><code>:model</code> only needs to assign a value to a single property path. No <code>with</code> needed.</p>
+
+<p><strong>Current code:</strong></p>
+<pre><code>function compileAssign(expression) {
+    return cached("=" + expression, () =>
+        new Function("context", "value",
+            `with (context) { ${expression} = value; }`));
+}</code></pre>
+
+<p><strong>CSP version:</strong></p>
+<pre><code>function compileAssign(expression) {
+    return cached("=" + expression, () => {
+        // expression is a simple path like "name" or "item.done"
+        const parts = expression.split(".");
+        return (ctx, value) => {
+            let obj = ctx;
+            for (let i = 0; i &lt; parts.length - 1; i++)
+                obj = obj[parts[i]];
+            obj[parts[parts.length - 1]] = value;
+        };
+    });
+}</code></pre>
+
+<h3>4. Component <code>&lt;script&gt;</code> execution <span class="tag tag--hard">Hard</span></h3>
+<p>This is the hardest part. Menut currently runs SFC scripts with <code>new Function(def.script).call(state)</code>, giving the script full access to <code>this</code> (the reactive state) and allowing arbitrary JS.</p>
+
+<p><strong>Options:</strong></p>
+
+<h4>Option A: Restrict to declarations only</h4>
+<p>Parse the script and only allow:</p>
+<ul>
+  <li>Function declarations: <code>function incrementar() { ... }</code></li>
+  <li>Property assignments: <code>host.onconnected = () => { ... }</code></li>
+  <li>Variable declarations: <code>const x = ...</code></li>
+</ul>
+<p>Reject: <code>import</code>, <code>class</code>, <code>for</code>, <code>while</code>, top-level expressions.</p>
+<p>This preserves the API but limits what scripts can do.</p>
+
+<h4>Option B: Scripts become optional</h4>
+<p>If CSP blocks <code>new Function</code>, the component renders its template but the script doesn't run. Users move logic to a separate <code>.js</code> file:</p>
+<pre><code>&lt;script src="my-component.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+document.querySelector("x-my-component").addEventListener("connected", () => {
+    // logic here
+});
+&lt;/script&gt;</code></pre>
+<p>This changes the developer experience significantly.</p>
+
+<h4>Option C: Make <code>new Function</code> optional at load time</h4>
+<p>Menut detects whether <code>new Function</code> works and degrades gracefully:</p>
+<pre><code>let EVAL_OK = true;
+try { new Function(""); } catch { EVAL_OK = false; }
+
+// In boot():
+if (def.script) {
+    if (EVAL_OK) {
+        new Function(def.script).call(state);
+    } else {
+        console.warn(`Menut CSP: script in &lt;${tag}&gt; skipped (unsafe-eval blocked)`);
+    }
+}</code></pre>
+<p>This is the least disruptive option. The framework works in both modes; scripts just don't run in CSP-strict environments.</p>
+
+<h2>Recommended approach</h2>
+
+<div class="info">
+  <strong>Build a <code>menut-csp.js</code> variant</strong> that ships the expression parser and restricted event handlers, with component scripts made optional (Option C). Keep the main <code>menut.js</code> as-is for maximum flexibility.
+</div>
+
+<p>The effort breaks down as:</p>
+<table>
+  <tr><th>Task</th><th>Estimate</th><th>Impact</th></tr>
+  <tr><td>Expression parser (replaces <code>compile</code>)</td><td>~200 lines</td><td>Covers 90% of use cases</td></tr>
+  <tr><td>Restricted event handler (replaces <code>compileEvent</code>)</td><td>~30 lines</td><td>Function calls only</td></tr>
+  <tr><td>Simple assignment (replaces <code>compileAssign</code>)</td><td>~15 lines</td><td>Dot-path assignment</td></tr>
+  <tr><td>Optional script execution</td><td>~5 lines</td><td>Graceful degradation</td></tr>
+  <tr><td><strong>Total</strong></td><td><strong>~250 lines</strong></td><td>CSP-strict compatible</td></tr>
+</table>
+
+<p>The resulting <code>menut-csp.js</code> would be slightly larger (~15-16 kb) but would work with <code>script-src 'self'</code> (no <code>unsafe-eval</code>).</p>
+
+<hr>
+
+<footer>
+  <p><a href="index.html">&larr; Back to Menut</a></p>
+</footer>
+
+</body>
+</html>

@@ -198,6 +198,7 @@
       <div class="head">Analysis</div>
       <a href="#anatomy">Code anatomy</a>
       <a href="menut-viz.html">Visualization &rarr;</a>
+      <a href="docs/csp.html">CSP compatibility &rarr;</a>
     </nav>
 
     <main class="docs-main">
@@ -647,6 +648,14 @@ _.remove = (index)=> { _.tasks.splice(index, 1); }
         <h2>Code anatomy</h2>
         <p>An interactive treemap of every function in <code>menut.js</code>, proportional to its size.</p>
         <a href="menut-viz.html"><button primary>Open visualization &rarr;</button></a>
+      </section>
+
+      <hr>
+
+      <section id="csp">
+        <h2>CSP &amp; <code>unsafe-eval</code></h2>
+        <p>Menut uses <code>new Function()</code> to compile HTML expressions into JavaScript at runtime. This requires <code>script-src 'unsafe-eval'</code> in Content Security Policy.</p>
+        <p>This was a deliberate trade-off: it keeps the framework tiny (~13 kb), the API simple (no build step), and the codebase readable. A CSP-strict variant is possible — see <a href="docs/csp.html">CSP compatibility</a> for the full analysis.</p>
       </section>
 
       <hr>
