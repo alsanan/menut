@@ -17,10 +17,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: oven-sh/setup-bun@v2
-
       - name: Regenerate docs/components.md
-        run: bun scripts/gen-component-docs.mjs
+        run: node scripts/gen-component-docs.mjs
 
       - name: Commit if changed
         run: |
