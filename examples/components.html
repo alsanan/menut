@@ -975,15 +975,15 @@ A **micro** framework for HTML-first components.
         <h3>cookie-consent</h3>
         <p class="usage">&lt;cookie-consent categories="essential,analytics,marketing"&gt;…&lt;/cookie-consent&gt;</p>
         <div class="stage">
-          <p class="note">Bottom bar with Accept All / Reject All at the same level, and a Customize link for granular toggles. Scripts with <code>data-consent="category"</code> load only after consent. Demo bar appears at the page bottom — click "Preferències de cookies" link in footer to re-open.</p>
-          <p><a href="#" onclick="event.preventDefault();document.querySelector('cookie-consent').show()">Preferències de cookies</a></p>
+          <p class="note">Bottom bar with Accept All / Reject All at the same level, and a Customize link for granular toggles. Scripts with <code>data-consent="category"</code> load only after consent. Demo bar appears at the page bottom — click "Cookie preferences" link to re-open.</p>
+          <p><a href="#" onclick="event.preventDefault();document.querySelector('cookie-consent').show()">Cookie preferences</a></p>
         </div>
       </div>
     </section>
   </div>
 
   <cookie-consent categories="essential,analytics,marketing">
-    <p style="margin:0">Utilitzem cookies per analitzar el trànsit i millorar l'experiència. Pots acceptar, rebutjar o personalitzar les teves preferències.</p>
+    <p style="margin:0">We use cookies to analyze traffic and improve your experience. You can accept, reject, or customize your preferences.</p>
   </cookie-consent>
 
   <script src="../menut.js?v=12"></script>

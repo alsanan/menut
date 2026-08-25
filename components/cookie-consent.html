@@ -126,14 +126,14 @@
 <div class="bar" role="dialog" aria-label="Cookie consent">
   <div class="msg"><slot></slot></div>
   <div class="actions">
-    <button class="btn btn-primary" data-action="accept">Acceptar tot</button>
-    <button class="btn btn-secondary" data-action="reject">Rebutjar tot</button>
-    <button class="btn-link" data-action="manage">Personalitzar</button>
+    <button class="btn btn-primary" data-action="accept">Accept all</button>
+    <button class="btn btn-secondary" data-action="reject">Reject all</button>
+    <button class="btn-link" data-action="manage">Customize</button>
   </div>
   <div class="panel">
     <div class="cats"></div>
     <div class="panel-actions">
-      <button class="btn btn-secondary" data-action="save">Desa preferències</button>
+      <button class="btn btn-secondary" data-action="save">Save preferences</button>
     </div>
   </div>
 </div>
@@ -185,7 +185,7 @@ function buildToggles(cats, consent) {
 
     const label = document.createElement('span')
     label.className = 'cat-label'
-    label.textContent = cat === 'essential' ? 'Essencials' : cat.charAt(0).toUpperCase() + cat.slice(1)
+    label.textContent = cat === 'essential' ? 'Essential' : cat.charAt(0).toUpperCase() + cat.slice(1)
 
     const toggle = document.createElement('input')
     toggle.type = 'checkbox'

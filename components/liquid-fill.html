@@ -1,27 +1,16 @@
 <!--
   @component liquid-fill
   @category data
-  @description Liquid fill progress bar with animated SVG waves. A vessel fills like a glass with two wave layers drifting at different speeds. The percentage and status are set via attributes. Light DOM for external CSS control.
+  @description Liquid fill progress bar with animated SVG waves. A vessel fills like a glass with two wave layers drifting at different speeds. The percentage is set via the value attribute. Supports accent/warn/err color themes or custom CSS colors.
   @usage <liquid-fill value="64">Storage · 12.8 GB of 20 GB</liquid-fill> · <liquid-fill value="78" color="warn">Getting full</liquid-fill>
   @attr value – Percentage (0–100). Required.
   @attr color – Liquid color: "accent" (default), "warn", "err", or any CSS color.
   @attr label – Aria-label for the progressbar.
-  @impl Two SVG waves drift via CSS animation. The liquid height is `--value` (CSS custom property). Color thresholds: <=50 → accent, 51–80 → warn, >80 → err (overridable via `color` attr). Stores original innerHTML as text slot.
+  @impl Two SVG waves drift via CSS animation. Liquid height driven by --lf-val CSS custom property. Color thresholds: <=50 → accent, 51–80 → warn, >80 → err (overridable via color attr). MutationObserver updates on attribute change.
 -->
-<div class="liquid-fill" style="--value: var(--lf-val, 0)">
-  <div class="liquid-fill__vessel" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-label="label || 'Progress'">
-    <div class="liquid-fill__liquid">
-      <svg class="liquid-fill__wave liquid-fill__wave--back" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 30 C 150 8 250 8 300 30 C 350 52 450 52 600 30 C 750 8 850 8 900 30 C 950 52 1050 52 1200 30 V60 H0 Z" fill="currentColor"/></svg>
-      <svg class="liquid-fill__wave liquid-fill__wave--front" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 34 C 120 14 240 54 360 34 C 480 14 600 54 720 34 C 840 14 960 54 1080 34 C 1140 24 1170 26 1200 34 V60 H0 Z" fill="currentColor"/></svg>
-    </div>
-    <p class="liquid-fill__readout">
-      <span class="liquid-fill__pct"></span>
-    </p>
-  </div>
-  <p class="liquid-fill__info"><slot></slot></p>
-</div>
-
+<template shadowrootmode="open">
 <style>
+:host { display: inline-block; }
 .liquid-fill {
   display: inline-flex;
   flex-direction: column;
@@ -106,10 +95,23 @@
 }
 </style>
 
+<div class="liquid-fill">
+  <div class="liquid-fill__vessel" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+    <div class="liquid-fill__liquid">
+      <svg class="liquid-fill__wave liquid-fill__wave--back" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 30 C 150 8 250 8 300 30 C 350 52 450 52 600 30 C 750 8 850 8 900 30 C 950 52 1050 52 1200 30 V60 H0 Z" fill="currentColor"/></svg>
+      <svg class="liquid-fill__wave liquid-fill__wave--front" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 34 C 120 14 240 54 360 34 C 480 14 600 54 720 34 C 840 14 960 54 1080 34 C 1140 24 1170 26 1200 34 V60 H0 Z" fill="currentColor"/></svg>
+    </div>
+    <p class="liquid-fill__readout">
+      <span class="liquid-fill__pct"></span>
+    </p>
+  </div>
+  <p class="liquid-fill__info"><slot></slot></p>
+</div>
+
 <script>
 const host = this
 const el = host.el
-const root = el.querySelector('.liquid-fill') || el
+const root = el.shadowRoot
 
 function getColor(v) {
   const attr = el.getAttribute('color')
@@ -121,8 +123,9 @@ function getColor(v) {
 
 function update() {
   const v = Math.max(0, Math.min(100, Number(el.getAttribute('value')) || 0))
-  root.style.setProperty('--lf-val', v)
-  root.style.setProperty('--lf-color', getColor(v))
+  const box = root.querySelector('.liquid-fill')
+  if (box) box.style.setProperty('--lf-val', v)
+  if (box) box.style.setProperty('--lf-color', getColor(v))
   const bar = root.querySelector('.liquid-fill__vessel')
   if (bar) bar.setAttribute('aria-valuenow', v)
   const pct = root.querySelector('.liquid-fill__pct')
@@ -132,3 +135,4 @@ function update() {
 update()
 new MutationObserver(update).observe(el, { attributes: true, attributeFilter: ['value', 'color', 'label'] })
 </script>
+</template>
