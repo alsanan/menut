@@ -1,0 +1,134 @@
+<!--
+  @component liquid-fill
+  @category data
+  @description Liquid fill progress bar with animated SVG waves. A vessel fills like a glass with two wave layers drifting at different speeds. The percentage and status are set via attributes. Light DOM for external CSS control.
+  @usage <liquid-fill value="64">Storage · 12.8 GB of 20 GB</liquid-fill> · <liquid-fill value="78" color="warn">Getting full</liquid-fill>
+  @attr value – Percentage (0–100). Required.
+  @attr color – Liquid color: "accent" (default), "warn", "err", or any CSS color.
+  @attr label – Aria-label for the progressbar.
+  @impl Two SVG waves drift via CSS animation. The liquid height is `--value` (CSS custom property). Color thresholds: <=50 → accent, 51–80 → warn, >80 → err (overridable via `color` attr). Stores original innerHTML as text slot.
+-->
+<div class="liquid-fill" style="--value: var(--lf-val, 0)">
+  <div class="liquid-fill__vessel" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-label="label || 'Progress'">
+    <div class="liquid-fill__liquid">
+      <svg class="liquid-fill__wave liquid-fill__wave--back" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 30 C 150 8 250 8 300 30 C 350 52 450 52 600 30 C 750 8 850 8 900 30 C 950 52 1050 52 1200 30 V60 H0 Z" fill="currentColor"/></svg>
+      <svg class="liquid-fill__wave liquid-fill__wave--front" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 34 C 120 14 240 54 360 34 C 480 14 600 54 720 34 C 840 14 960 54 1080 34 C 1140 24 1170 26 1200 34 V60 H0 Z" fill="currentColor"/></svg>
+    </div>
+    <p class="liquid-fill__readout">
+      <span class="liquid-fill__pct"></span>
+    </p>
+  </div>
+  <p class="liquid-fill__info"><slot></slot></p>
+</div>
+
+<style>
+.liquid-fill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  font-family: var(--font, system-ui, sans-serif);
+  --lf-accent: var(--liquid-fill-accent, oklch(0.75 0.15 200));
+  --lf-warn: var(--liquid-fill-warn, oklch(0.75 0.16 70));
+  --lf-err: var(--liquid-fill-err, oklch(0.63 0.22 25));
+}
+.liquid-fill__vessel {
+  position: relative;
+  inline-size: min(10rem, 50vw);
+  aspect-ratio: 3 / 4;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--lf-color, var(--lf-accent)) 34%, transparent);
+  background: color-mix(in srgb, var(--lf-color, var(--lf-accent)) 6%, transparent);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04) inset, 0 12px 32px -18px color-mix(in srgb, var(--lf-color, var(--lf-accent)) 45%, transparent);
+}
+.liquid-fill__vessel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, rgba(255,255,255,.14), transparent 42%, transparent 70%, rgba(255,255,255,.06));
+}
+.liquid-fill__liquid {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: calc(var(--lf-val, 0) * 1%);
+  color: var(--lf-color, var(--lf-accent));
+  background: color-mix(in srgb, var(--lf-color, var(--lf-accent)) 65%, transparent);
+  transition: block-size .5s cubic-bezier(.4, 0, .2, 1), color .3s, background .3s;
+}
+.liquid-fill__wave {
+  position: absolute;
+  inset-block-start: -1rem;
+  inset-inline-start: 0;
+  inline-size: 200%;
+  block-size: 1.2rem;
+  will-change: transform;
+}
+.liquid-fill__wave--front {
+  animation: lf-drift 7s linear infinite;
+  opacity: .9;
+}
+.liquid-fill__wave--back {
+  animation: lf-drift 11s linear infinite reverse;
+  opacity: .45;
+}
+@keyframes lf-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.liquid-fill__readout {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  z-index: 1;
+}
+.liquid-fill__pct {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -.04em;
+  color: var(--fg, oklch(0.2 0 0));
+  text-shadow: 0 1px 4px rgba(255,255,255,.6);
+}
+.liquid-fill__info {
+  margin: 0;
+  font-size: var(--fs-sm, 0.82rem);
+  color: var(--fg-muted, oklch(0.5 0 0));
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-fill__wave { animation: none !important; }
+}
+</style>
+
+<script>
+const host = this
+const el = host.el
+const root = el.querySelector('.liquid-fill') || el
+
+function getColor(v) {
+  const attr = el.getAttribute('color')
+  if (attr === 'accent' || !attr) return 'var(--lf-accent)'
+  if (attr === 'warn') return 'var(--lf-warn)'
+  if (attr === 'err') return 'var(--lf-err)'
+  return attr
+}
+
+function update() {
+  const v = Math.max(0, Math.min(100, Number(el.getAttribute('value')) || 0))
+  root.style.setProperty('--lf-val', v)
+  root.style.setProperty('--lf-color', getColor(v))
+  const bar = root.querySelector('.liquid-fill__vessel')
+  if (bar) bar.setAttribute('aria-valuenow', v)
+  const pct = root.querySelector('.liquid-fill__pct')
+  if (pct) pct.textContent = v + '%'
+}
+
+update()
+new MutationObserver(update).observe(el, { attributes: true, attributeFilter: ['value', 'color', 'label'] })
+</script>

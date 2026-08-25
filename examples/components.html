@@ -118,6 +118,7 @@
   <define-component src="../components/x-signature.html"></define-component>
   <define-component src="../components/spark-line.html"></define-component>
   <define-component src="../components/cookie-consent.html"></define-component>
+  <define-component src="../components/liquid-fill.html"></define-component>
   <define-component src="../components/x-countdown.html"></define-component>
   <define-component src="../components/x-inspector.html"></define-component>
   <define-component src="../components/lorem-ipsum.html"></define-component>
@@ -454,6 +455,18 @@
         <h3>x-inspector</h3>
         <p class="usage">&lt;x-inspector value='{"a":1,"b":[true,false]}'&gt;&lt;/x-inspector&gt;</p>
         <div class="stage"><x-inspector value='{&quot;title&quot;:&quot;Menut&quot;,&quot;version&quot;:1,&quot;tags&quot;:[&quot;html-first&quot;],&quot;meta&quot;:{&quot;stars&quot;:42,&quot;public&quot;:true}}'></x-inspector></div>
+      </div>
+
+      <div class="demo">
+        <h3>liquid-fill</h3>
+        <p class="usage">&lt;liquid-fill value="64"&gt;Storage · 12.8 GB of 20 GB&lt;/liquid-fill&gt;</p>
+        <div class="stage" style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-end">
+          <liquid-fill value="18">3.6 GB of 20 GB</liquid-fill>
+          <liquid-fill value="64">12.8 GB of 20 GB</liquid-fill>
+          <liquid-fill value="78" color="warn">Getting full · 4.3 GB free</liquid-fill>
+          <liquid-fill value="96" color="err">Almost out · 0.8 GB free</liquid-fill>
+        </div>
+        <p class="note">Liquid fill progress bar with animated SVG waves. Auto-colors: ≤50% → accent, 51–80% → warn, >80% → err. Override with <code>color</code> attribute. Animations respect <code>prefers-reduced-motion</code>.</p>
       </div>
     </section>
 
