@@ -117,6 +117,7 @@
   <define-component src="../components/scroll-to-top.html"></define-component>
   <define-component src="../components/x-signature.html"></define-component>
   <define-component src="../components/spark-line.html"></define-component>
+  <define-component src="../components/cookie-consent.html"></define-component>
   <define-component src="../components/x-countdown.html"></define-component>
   <define-component src="../components/x-inspector.html"></define-component>
   <define-component src="../components/lorem-ipsum.html"></define-component>
@@ -956,8 +957,21 @@ A **micro** framework for HTML-first components.
         <sse-connect src="../components/sse-stream.php" append></sse-connect>
         <p class="note">Opens an SSE connection and appends each message as HTML after the component. Here the server pushes <code>&lt;server-action&gt;</code> fragments that append rows to the list.</p>
       </div>
+
+      <div class="demo">
+        <h3>cookie-consent</h3>
+        <p class="usage">&lt;cookie-consent categories="essential,analytics,marketing"&gt;…&lt;/cookie-consent&gt;</p>
+        <div class="stage">
+          <p class="note">Bottom bar with Accept All / Reject All at the same level, and a Customize link for granular toggles. Scripts with <code>data-consent="category"</code> load only after consent. Demo bar appears at the page bottom — click "Preferències de cookies" link in footer to re-open.</p>
+          <p><a href="#" onclick="event.preventDefault();document.querySelector('cookie-consent').show()">Preferències de cookies</a></p>
+        </div>
+      </div>
     </section>
   </div>
+
+  <cookie-consent categories="essential,analytics,marketing">
+    <p style="margin:0">Utilitzem cookies per analitzar el trànsit i millorar l'experiència. Pots acceptar, rebutjar o personalitzar les teves preferències.</p>
+  </cookie-consent>
 
   <script src="../menut.js?v=12"></script>
   <script>

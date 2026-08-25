@@ -44,6 +44,7 @@ are usable as bare identifiers in any directive:
 | `dispatch(name, detail)` | `CustomEvent` (`bubbles`, `composed`) on `document` |
 | `sleep(ms)` | `new Promise(r => setTimeout(r, ms))` (for `await`) |
 | `raf(fn)` | `requestAnimationFrame(fn)` |
+| `debounce(fn, ms)` | Returns a debounced version of `fn` (default `ms=0` → microtask) |
 | `mount(el?)` | Mounts (re-mounts) `el`; accepts a selector or element |
 
 `dispatch` is the complement of `:on.myevent`: it fires a custom event that any

@@ -163,6 +163,14 @@
                 // ...and the effects that depended on that property are notified.
                 trigger(target, key);
                 return true;   // signal the write succeeded
+            },
+            // defineProperty: e.g. Object.defineProperty(item, "_index", ...)
+            // without this trap, defineProperty falls through to the raw target
+            // and never calls trigger() — bindings reading _index stay stale.
+            defineProperty(target, key, descriptor) {
+                const ok = Reflect.defineProperty(target, key, descriptor);
+                if (ok) trigger(target, key);
+                return ok;
             }
         });
 
@@ -1467,6 +1475,7 @@
         dispatch: (name, detail) => document.dispatchEvent(new (document.defaultView.CustomEvent || CustomEvent)(name, { detail, bubbles: true, composed: true })),
         sleep: ms => new Promise(r => setTimeout(r, ms)),
         raf: fn => requestAnimationFrame(fn),
+        debounce: (fn, ms = 0) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
         mount: (el = document) => mount(typeof el === "string" ? document.querySelector(el) : el),
         define
     };

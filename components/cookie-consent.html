@@ -1,0 +1,312 @@
+<!--
+  @component cookie-consent
+  @category content
+  @description GDPR-compliant cookie consent bar with script gating. Shows a compact bottom bar with Accept All / Reject All buttons at the same level, and a Customize link for granular category toggles. Scripts with data-consent="category" load only after consent is given. Stores choice in localStorage with date and policy version for re-prompting.
+  @usage <cookie-consent categories="essential,analytics,marketing">Your message</cookie-consent> · <cookie-consent>Default categories</cookie-consent>
+  @attr categories – Comma-separated category list. First is always "essential" (always ON). Defaults to "essential,analytics,marketing".
+  @impl Uses shadow DOM with bottom-fixed bar. Dispatches consent-change event on document. Gates scripts via data-consent attribute. show() method reopens the bar. Stores { v, ts, ...categories } in localStorage under "menut_consent". Re-prompts when policy version changes.
+-->
+<template shadowrootmode="open">
+<style>
+:host {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: block;
+  font-family: var(--font, system-ui, sans-serif);
+  font-size: var(--fs-sm, 0.85rem);
+  line-height: 1.5;
+}
+:host([hidden]) { display: none; }
+.bar {
+  background: var(--bg-consent, oklch(0.97 0.005 90));
+  color: var(--fg-consent, oklch(0.2 0.01 90));
+  border-top: 1px solid var(--hairline, oklch(0.9 0.01 90));
+  padding: .6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  box-shadow: 0 -2px 8px oklch(0 0 0 / 0.08);
+}
+.msg { flex: 1 1 20rem; }
+.msg ::slotted(*) { margin: 0; }
+.msg ::slotted(a) { color: inherit; text-decoration: underline; }
+.msg ::slotted(a):hover { opacity: .8; }
+.actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.btn {
+  font: inherit;
+  padding: .4rem .85rem;
+  border-radius: var(--radius-btn, 6px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent, oklch(0.55 0.15 260));
+  color: var(--fg-on-accent, #fff);
+  border: 1px solid var(--accent, oklch(0.55 0.15 260));
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--fg-consent, oklch(0.2 0.01 90));
+  border: 1px solid var(--hairline, oklch(0.9 0.01 90));
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--fg-muted, oklch(0.5 0.01 90));
+  padding: .4rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover { opacity: .8; }
+.panel {
+  display: none;
+  width: 100%;
+  padding: .5rem 0 0;
+  border-top: 1px solid var(--hairline, oklch(0.9 0.01 90));
+  margin-top: .5rem;
+}
+.panel.open { display: block; }
+.cat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .35rem 0;
+}
+.cat-label { flex: 1; }
+.cat-toggle {
+  position: relative;
+  width: 2.2rem;
+  height: 1.2rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-toggle, oklch(0.85 0.01 90));
+  border-radius: 9999px;
+  border: 1px solid var(--hairline, oklch(0.8 0.01 90));
+  cursor: pointer;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.cat-toggle::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(1.2rem - 4px);
+  height: calc(1.2rem - 4px);
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .15s;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.15);
+}
+.cat-toggle:checked {
+  background: var(--accent, oklch(0.55 0.15 260));
+  border-color: var(--accent, oklch(0.55 0.15 260));
+}
+.cat-toggle:checked::after { transform: translateX(1rem); }
+.cat-toggle:disabled {
+  opacity: .5;
+  cursor: default;
+}
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  padding-top: .5rem;
+  margin-top: .5rem;
+  border-top: 1px solid var(--hairline, oklch(0.9 0.01 90));
+}
+</style>
+
+<div class="bar" role="dialog" aria-label="Cookie consent">
+  <div class="msg"><slot></slot></div>
+  <div class="actions">
+    <button class="btn btn-primary" data-action="accept">Acceptar tot</button>
+    <button class="btn btn-secondary" data-action="reject">Rebutjar tot</button>
+    <button class="btn-link" data-action="manage">Personalitzar</button>
+  </div>
+  <div class="panel">
+    <div class="cats"></div>
+    <div class="panel-actions">
+      <button class="btn btn-secondary" data-action="save">Desa preferències</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const host = this
+const el = host.el
+const root = el.shadowRoot
+
+const STORAGE_KEY = 'menut_consent'
+const DEFAULT_VERSION = 1
+
+function getCategories() {
+  const raw = host.el.getAttribute('categories') || 'essential,analytics,marketing'
+  return raw.split(',').map(s => s.trim()).filter(Boolean)
+}
+
+function getConsent() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch(e) { return null }
+}
+
+function saveConsent(consent) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(consent)) } catch(e) {}
+}
+
+function makeConsent(cats) {
+  const consent = { v: DEFAULT_VERSION, ts: Date.now() }
+  for (const cat of cats) consent[cat] = cat === 'essential'
+  return consent
+}
+
+function mergeWithUserChoice(base, user) {
+  for (const key of Object.keys(base)) {
+    if (key === 'v' || key === 'ts') continue
+    if (user && key in user) base[key] = user[key]
+  }
+  return base
+}
+
+function buildToggles(cats, consent) {
+  const container = root.querySelector('.cats')
+  container.innerHTML = ''
+  for (const cat of cats) {
+    const row = document.createElement('div')
+    row.className = 'cat'
+
+    const label = document.createElement('span')
+    label.className = 'cat-label'
+    label.textContent = cat === 'essential' ? 'Essencials' : cat.charAt(0).toUpperCase() + cat.slice(1)
+
+    const toggle = document.createElement('input')
+    toggle.type = 'checkbox'
+    toggle.className = 'cat-toggle'
+    toggle.dataset.cat = cat
+    if (cat === 'essential') toggle.disabled = true
+    toggle.checked = consent[cat] === true
+
+    row.appendChild(label)
+    row.appendChild(toggle)
+    container.appendChild(row)
+  }
+}
+
+function readToggles(cats) {
+  const result = {}
+  for (const cat of cats) {
+    const toggle = root.querySelector('[data-cat="' + cat + '"]')
+    result[cat] = toggle ? toggle.checked : false
+  }
+  return result
+}
+
+function dispatchConsent(consent) {
+  document.dispatchEvent(new CustomEvent('consent-change', {
+    detail: { ...consent },
+    bubbles: true,
+    composed: true
+  }))
+}
+
+function gateScripts(consent) {
+  for (const script of document.querySelectorAll('script[data-consent]')) {
+    const cat = script.dataset.consent
+    if (consent[cat]) {
+      const ns = document.createElement('script')
+      for (const attr of script.attributes) {
+        if (attr.name === 'type') continue
+        if (attr.name === 'data-consent') continue
+        ns.setAttribute(attr.name, attr.value)
+      }
+      if (script.textContent) ns.textContent = script.textContent
+      script.parentNode.insertBefore(ns, script)
+      script.remove()
+    }
+  }
+}
+
+function acceptAll() {
+  const cats = getCategories()
+  const consent = makeConsent(cats)
+  saveConsent(consent)
+  dispatchConsent(consent)
+  gateScripts(consent)
+  host.el.hidden = true
+}
+
+function rejectAll() {
+  const cats = getCategories()
+  const consent = makeConsent(cats)
+  for (const cat of cats) {
+    if (cat !== 'essential') consent[cat] = false
+  }
+  saveConsent(consent)
+  dispatchConsent(consent)
+  gateScripts(consent)
+  host.el.hidden = true
+}
+
+function saveCustom() {
+  const cats = getCategories()
+  const consent = makeConsent(cats)
+  const user = readToggles(cats)
+  mergeWithUserChoice(consent, user)
+  saveConsent(consent)
+  dispatchConsent(consent)
+  gateScripts(consent)
+  host.el.hidden = true
+}
+
+function show() {
+  host.el.hidden = false
+  const cats = getCategories()
+  const existing = getConsent()
+  const consent = existing ? { ...makeConsent(cats), ...existing } : makeConsent(cats)
+  buildToggles(cats, consent)
+  root.querySelector('.panel').classList.add('open')
+}
+
+function init() {
+  const cats = getCategories()
+  const existing = getConsent()
+
+  if (existing && existing.v === DEFAULT_VERSION) {
+    gateScripts(existing)
+    host.el.hidden = true
+    return
+  }
+
+  if (!existing) {
+    buildToggles(cats, makeConsent(cats))
+  } else {
+    const consent = { ...makeConsent(cats), ...existing }
+    buildToggles(cats, consent)
+  }
+}
+
+root.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]')
+  if (!btn) return
+  const action = btn.dataset.action
+  if (action === 'accept') acceptAll()
+  else if (action === 'reject') rejectAll()
+  else if (action === 'save') saveCustom()
+  else if (action === 'manage') {
+    root.querySelector('.panel').classList.toggle('open')
+  }
+})
+
+el.show = show
+host.ondisconnected = () => {}
+init()
+</script>
+</template>
