@@ -29,6 +29,7 @@ Auto-generated from `components/*.html`.
 ## Progress & data
 
 - [`data-grid`](#data-grid) — Lightweight editable data table with CRUD actions: add, duplicate and delete row
+- [`liquid-fill`](#liquid-fill) — Liquid fill progress bar with animated SVG waves. A vessel fills like a glass wi
 - [`progress-circle`](#progress-circle) — Circular progress ring. Single value (one arc) or comma-separated values (multi-
 - [`spark-line`](#spark-line) — Mini SVG line chart.
 - [`stat-counter`](#stat-counter) — Animated number counter. Props: number (target), duration (seconds). Animates on
@@ -84,6 +85,7 @@ Auto-generated from `components/*.html`.
 
 ## Content & actions
 
+- [`cookie-consent`](#cookie-consent) — GDPR-compliant cookie consent bar with script gating. Shows a compact bottom bar
 - [`date-time`](#date-time) — Live date/time formatter with PHP-style format (date() syntax) that auto-updates
 - [`html-load`](#html-load) — Loading agent: fetches an HTML fragment (fetch) and places it at a target with a
 - [`json-editor`](#json-editor) — Visual JSON editor with Tree and Raw views, powered by the @visual-json/core hea
@@ -92,6 +94,7 @@ Auto-generated from `components/*.html`.
 - [`sse-connect`](#sse-connect) — Opens a Server-Sent Events connection to `src`. Dispatches a `receive` CustomEve
 - [`sticky-sidebar`](#sticky-sidebar) — Sticky sidebar with two modes. Default: position:sticky with align-self:start (i
 - [`virtual-list`](#virtual-list) — Slot-based visibility virtualizer. Uses IntersectionObserver to add a visible cl
+- [`ws-connect`](#ws-connect) — WebSocket client with auto-reconnect. Dispatches ws-open, ws-message, ws-close, 
 - [`x-code-highlight`](#x-code-highlight) — Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an ext
 - [`x-markdown`](#x-markdown) — Render Markdown to HTML using marked.js loaded from CDN. Content can come from t
 
@@ -513,6 +516,22 @@ Lightweight editable data table with CRUD actions: add, duplicate and delete row
 **Implementation notes**
 
 Builds a <table> from the array. Cells are inputs when editable. Emits change events.
+
+---
+
+## liquid-fill
+
+Liquid fill progress bar with animated SVG waves. A vessel fills like a glass with two wave layers drifting at different speeds. The percentage is set via the value attribute. Supports accent/warn/err color themes or custom CSS colors.
+
+**Usage**
+
+```html
+<liquid-fill value="64">Storage · 12.8 GB of 20 GB</liquid-fill> · <liquid-fill value="78" color="warn">Getting full</liquid-fill>
+```
+
+**Implementation notes**
+
+Two SVG waves drift via CSS animation. Liquid height driven by --lf-val CSS custom property. Color thresholds: <=50 → accent, 51–80 → warn, >80 → err (overridable via color attr). MutationObserver updates on attribute change.
 
 ---
 
@@ -1244,6 +1263,22 @@ Script calculates rotation from pointer position relative to card center. Layers
 
 # Content & actions
 
+## cookie-consent
+
+GDPR-compliant cookie consent bar with script gating. Shows a compact bottom bar with Accept All / Reject All buttons at the same level, and a Customize link for granular category toggles. Scripts with data-consent="category" load only after consent is given. Stores choice in localStorage with date and policy version for re-prompting.
+
+**Usage**
+
+```html
+<cookie-consent categories="essential,analytics,marketing">Your message</cookie-consent> · <cookie-consent>Default categories</cookie-consent>
+```
+
+**Implementation notes**
+
+Uses shadow DOM with bottom-fixed bar. Dispatches consent-change event on document. Gates scripts via data-consent attribute. show() method reopens the bar. Stores { v, ts, ...categories } in localStorage under "menut_consent". Re-prompts when policy version changes.
+
+---
+
 ## date-time
 
 Live date/time formatter with PHP-style format (date() syntax) that auto-updates. Adds [relative] to show a localized relative time instead.
@@ -1349,7 +1384,7 @@ Opens a Server-Sent Events connection to `src`. Dispatches a `receive` CustomEve
 **Usage**
 
 ```html
-<sse-connect src="/events" :on.receive="log($event.detail.data)"></sse-connect> · <sse-connect src="stream.php" append></sse-connect>
+<sse-connect src="/events" :on.receive="log(event.detail.data)"></sse-connect> · <sse-connect src="stream.php" append></sse-connect>
 ```
 
 **Props**
@@ -1397,6 +1432,28 @@ Observes slotted children and toggles the `visible` class. Also applies content-
 
 ---
 
+## ws-connect
+
+WebSocket client with auto-reconnect. Dispatches ws-open, ws-message, ws-close, ws-error events. Messages can be JSON, plain text, or HTML.
+
+**Usage**
+
+```html
+<ws-connect url="wss://echo.rapidtoolset.com/ws" :on.message="handle(event.data)"></ws-connect>
+```
+
+**Props**
+
+| Prop | Type | Default |
+|------|------|---------|
+| `url` | `string` | `` |
+
+**Implementation notes**
+
+Creates a WebSocket. Auto-reconnects every 3s on close. Cleans up via this.signal.
+
+---
+
 ## x-code-highlight
 
 Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an external library as a Menut SFC.
@@ -1404,7 +1461,7 @@ Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an ext
 **Usage**
 
 ```html
-<x-code-highlight lang="javascript" theme="github">code here</x-code-highlight>
+<x-code-highlight lang="javascript">code here</x-code-highlight>
 ```
 
 **Props**
@@ -1413,11 +1470,10 @@ Syntax highlighting using MicroLighter (CSS Custom Highlights API). Wraps an ext
 |------|------|---------|
 | `lang` | `string` | `javascript` |
 | `theme` | `string` | `github` |
-| `lineNumbers` | `boolean` | `false` |
 
 **Implementation notes**
 
-Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Themes via light-dark(). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
+Loads MicroLighter from CDN on demand. Uses CSS Custom Highlights API (no DOM spans). Based on https://daverupert.com/2026/08/microlighter/ by Dave Rupert.
 
 ---
 
