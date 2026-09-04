@@ -36,10 +36,10 @@ address-input .st.er { color: var(--err, oklch(0.6 0.22 25)); }
     <input data-f="state" placeholder="State/Province" autocomplete="address-level1">
   </div>
   <div class="row row-2">
-    <input data-f="street" placeholder="Street" autocomplete="address-line1" required list="">
+    <input data-f="street" placeholder="Street" autocomplete="address-line1" required list="addr-streets">
     <input data-f="number" placeholder="Number" autocomplete="address-line2">
   </div>
-  <datalist></datalist>
+  <datalist id="addr-streets"></datalist>
   <p class="st"></p>
 </form>
 
