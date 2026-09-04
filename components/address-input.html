@@ -32,13 +32,14 @@ address-input .st.er { color: var(--err, oklch(0.6 0.22 25)); }
   <select data-f="country" autocomplete="country" required><option value="">Select country</option></select>
   <div class="row row-3">
     <input data-f="postal_code" placeholder="Postal code" autocomplete="postal-code" required>
-    <input data-f="city" placeholder="City" autocomplete="address-level2" required>
+    <input data-f="city" placeholder="City" autocomplete="address-level2" required list="addr-cities">
     <input data-f="state" placeholder="State/Province" autocomplete="address-level1">
   </div>
   <div class="row row-2">
     <input data-f="street" placeholder="Street" autocomplete="address-line1" required list="addr-streets">
     <input data-f="number" placeholder="Number" autocomplete="address-line2">
   </div>
+  <datalist id="addr-cities"></datalist>
   <datalist id="addr-streets"></datalist>
   <p class="st"></p>
 </form>
@@ -86,8 +87,7 @@ async function lookupPostal(code, country) {
       fetchStreets(code)
       f('street').focus()
     } else {
-      let dl = el.querySelector('datalist')
-      if (!dl) { dl = document.createElement('datalist'); f('city').parentNode.appendChild(dl) }
+      const dl = el.querySelector('#addr-cities')
       dl.innerHTML = ''
       const seen = new Set()
       for (const p of _places) {
@@ -96,7 +96,6 @@ async function lookupPostal(code, country) {
         const o = document.createElement('option'); o.value = p['place name']; dl.appendChild(o)
       }
       set('state', _places[0]['state'])
-      f('city').setAttribute('list', '')
       f('city').focus()
       st(_places.length + ' cities found — select one')
     }
@@ -110,7 +109,7 @@ async function fetchStreets(postalCode) {
     const r = await fetch(STREETS_API + postalCode)
     if (!r.ok) return
     const j = await r.json()
-    const dl = el.querySelector('datalist')
+    const dl = el.querySelector('#addr-streets')
     if (dl && j.calles) {
       dl.innerHTML = ''
       for (const c of j.calles) { const o = document.createElement('option'); o.value = c; dl.appendChild(o) }
@@ -137,7 +136,7 @@ f('city').addEventListener('input', function() {
 })
 
 f('street').addEventListener('input', function() {
-  const dl = el.querySelector('datalist')
+  const dl = el.querySelector('#addr-streets')
   if (dl && [...dl.options].some(o => o.value === f('street').value)) f('number').focus()
   emit()
 })
