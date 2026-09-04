@@ -1,212 +1,171 @@
 <!--
   @component address-input
   @category forms
-  @description Address form with postal code auto-fill via zippopotam.us API. Detects country from IP. Outputs a structured address object via address-change event. All sub-fields are real inputs that submit natively.
+  @description Address form with postal code auto-fill (zippopotam.us) and street lookup (cerocoma.net). Detects country from IP. Outputs structured address via address-change event. All sub-fields submit natively.
   @usage <address-input name="shipping"></address-input> · <address-input name="billing" country="ES"></address-input>
   @attr name – Form field prefix (default "address"). Sub-fields: {name}[country], {name}[postal_code], etc.
-  @attr country – Default ISO country code (e.g. "US", "ES"). Detects from IP if omitted.
-  @impl Uses zippopotam.us for postal code → city/state. Country list embedded (no CORS issues). Dispatches address-change with {country, postal_code, city, state, street, number}.
+  @attr country – Default ISO country code. Detects from IP if omitted.
 -->
 <template shadowrootmode="open">
 <style>
 :host { display: block; }
-form {
-  display: grid;
-  gap: .5rem;
-  font-family: var(--font, system-ui, sans-serif);
-}
+form { display: grid; gap: .5rem; font-family: var(--font, system-ui, sans-serif); }
 select, input {
-  font: inherit;
-  padding: .45rem .6rem;
+  font: inherit; padding: .45rem .6rem;
   border: 1px solid var(--hairline, oklch(0.88 0.01 90));
   border-radius: var(--radius-btn, 6px);
-  background: var(--bg, #fff);
-  color: var(--fg, oklch(0.2 0 0));
-  width: 100%;
-  box-sizing: border-box;
+  background: var(--bg, #fff); color: var(--fg, oklch(0.2 0 0));
+  width: 100%; box-sizing: border-box;
 }
-select:focus, input:focus {
-  outline: 2px solid var(--accent, oklch(0.55 0.15 260));
-  outline-offset: -1px;
-}
+select:focus, input:focus { outline: 2px solid var(--accent, oklch(0.55 0.15 260)); outline-offset: -1px; }
 .row { display: grid; gap: .5rem; }
 .row-3 { grid-template-columns: 2fr 1fr 1fr; }
 .row-2 { grid-template-columns: 1fr 1fr; }
-@media (max-width: 480px) {
-  .row-3, .row-2 { grid-template-columns: 1fr; }
-}
-.status {
-  font-size: var(--fs-xs, 0.72rem);
-  color: var(--fg-muted, oklch(0.5 0 0));
-  min-height: 1em;
-  margin: 0;
-}
-.status.error { color: var(--err, oklch(0.6 0.22 25)); }
+@media (max-width: 480px) { .row-3, .row-2 { grid-template-columns: 1fr; } }
+.st { font-size: var(--fs-xs, .72rem); color: var(--fg-muted, oklch(0.5 0 0)); min-height: 1em; margin: 0; }
+.st.er { color: var(--err, oklch(0.6 0.22 25)); }
 </style>
-
 <form>
-  <select data-field="country" autocomplete="country" required>
-    <option value="">Select country</option>
-  </select>
+  <select data-f="country" autocomplete="country" required><option value="">Select country</option></select>
   <div class="row row-3">
-    <input data-field="postal_code" placeholder="Postal code" autocomplete="postal-code" required>
-    <input data-field="city" placeholder="City" autocomplete="address-level2" required>
-    <input data-field="state" placeholder="State/Province" autocomplete="address-level1">
+    <input data-f="postal_code" placeholder="Postal code" autocomplete="postal-code" required>
+    <input data-f="city" placeholder="City" autocomplete="address-level2" required>
+    <input data-f="state" placeholder="State/Province" autocomplete="address-level1">
   </div>
   <div class="row row-2">
-    <input data-field="street" placeholder="Street" autocomplete="address-line1" required>
-    <input data-field="number" placeholder="Number" autocomplete="address-line2">
+    <input data-f="street" placeholder="Street" autocomplete="address-line1" required list="addr-streets">
+    <input data-f="number" placeholder="Number" autocomplete="address-line2">
   </div>
-  <p class="status"></p>
+  <datalist id="addr-streets"></datalist>
+  <p class="st"></p>
 </form>
-
 <script>
-const host = this
-const el = host.el
-const root = el.shadowRoot
-const prefix = el.getAttribute('name') || 'address'
+(function() {
+  const host = this;
+  const el = host.el || document.currentScript?.closest('[data-component]') || host.querySelector?.('address-input');
+  if (!el) return;
+  const root = el.shadowRoot;
+  if (!root) return;
+  const prefix = el.getAttribute('name') || 'address';
+  const API = 'https://api.zippopotam.us';
+  const STREETS_API = 'https://api.cerocoma.net/festivos/v1/calles/';
+  let _timer = null, _places = null;
 
-const API = 'https://api.zippopotam.us'
-let _debounceTimer = null
-let _currentData = null
-
-function field(name) { return root.querySelector('[data-field="' + name + '"]') }
-function status(msg, err) {
-  const s = root.querySelector('.status')
-  if (s) { s.textContent = msg; s.classList.toggle('error', !!err) }
-}
-
-function setAddress(name, val) { const f = field(name); if (f) f.value = val }
-
-function dispatchAddress() {
-  const addr = {
-    country: field('country').value,
-    postal_code: field('postal_code').value,
-    city: field('city').value,
-    state: field('state').value,
-    street: field('street').value,
-    number: field('number').value
+  function f(n) { return root.querySelector('[data-f="'+n+'"]'); }
+  function set(n, v) { const el = f(n); if (el) el.value = v; }
+  function st(msg, er) {
+    const s = root.querySelector('.st');
+    if (s) { s.textContent = msg; s.classList.toggle('er', !!er); }
   }
-  el.dispatchEvent(new CustomEvent('address-change', {
-    detail: addr, bubbles: true, composed: true
-  }))
-}
-
-function wireNames() {
-  root.querySelectorAll('[data-field]').forEach(f => {
-    f.name = prefix + '[' + f.dataset.field + ']'
-  })
-}
-
-const COUNTRIES = [["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo, DR"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czech Republic"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KR","South Korea"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]]
-
-function loadCountries(defaultCountry) {
-  const sel = field('country')
-  for (const [code, name] of COUNTRIES) {
-    const opt = document.createElement('option')
-    opt.value = code
-    opt.textContent = name
-    sel.appendChild(opt)
+  function emit() {
+    el.dispatchEvent(new CustomEvent('address-change', {
+      detail: { country: f('country').value, postal_code: f('postal_code').value, city: f('city').value, state: f('state').value, street: f('street').value, number: f('number').value },
+      bubbles: true, composed: true
+    }));
   }
-  if (defaultCountry) sel.value = defaultCountry
-}
 
-async function lookupPostal(code, country) {
-  if (!code || !country || code.length < 3) return
-  status('Looking up postal code…')
-  try {
-    const res = await fetch(`${API}/${country}/${code}`)
-    if (!res.ok) { status('Postal code not found', true); return }
-    const json = await res.json()
-    _currentData = json.places || []
-    if (_currentData.length === 0) { status('No results', true); return }
+  // Wire name attributes
+  root.querySelectorAll('[data-f]').forEach(e => { e.name = prefix + '[' + e.dataset.f + ']'; });
 
-    const cityInput = field('city')
-    const stateInput = field('state')
+  // Country list
+  const CL = [["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo, DR"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czech Republic"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KR","South Korea"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]];
+  const csel = f('country');
+  for (const [c, n] of CL) { const o = document.createElement('option'); o.value = c; o.textContent = n; csel.appendChild(o); }
+  const def = el.getAttribute('country');
+  if (def) csel.value = def;
 
-    if (_currentData.length === 1) {
-      setAddress('city', _currentData[0]['place name'])
-      setAddress('state', _currentData[0]['state'])
-      status('')
-      field('street').focus()
-    } else {
-      let dl = root.querySelector('#addr-cities')
-      if (!dl) {
-        dl = document.createElement('datalist')
-        dl.id = 'addr-cities'
-        cityInput.parentNode.appendChild(dl)
-      }
-      dl.innerHTML = ''
-      const seen = new Set()
-      for (const p of _currentData) {
-        const key = p['place name'] + '|' + p.state
-        if (seen.has(key)) continue
-        seen.add(key)
-        const opt = document.createElement('option')
-        opt.value = p['place name']
-        dl.appendChild(opt)
-      }
-      setAddress('state', _currentData[0]['state'])
-      cityInput.setAttribute('list', 'addr-cities')
-      cityInput.focus()
-      status(_currentData.length + ' cities found — select one')
-    }
-    dispatchAddress()
-  } catch(e) {
-    status('Lookup failed', true)
-  }
-}
-
-function init() {
-  const defaultCountry = el.getAttribute('country') || ''
-  wireNames()
-  loadCountries(defaultCountry)
-
-  field('postal_code').addEventListener('input', (e) => {
-    clearTimeout(_debounceTimer)
-    _debounceTimer = setTimeout(() => {
-      lookupPostal(e.target.value, field('country').value)
-    }, 350)
-  })
-
-  field('country').addEventListener('change', () => {
-    const postal = field('postal_code').value
-    if (postal) lookupPostal(postal, field('country').value)
-    dispatchAddress()
-  })
-
-  field('city').addEventListener('input', () => {
-    if (_currentData && _currentData.length > 1) {
-      const match = _currentData.find(p => p['place name'] === field('city').value)
-      if (match) {
-        setAddress('state', match.state)
-        field('street').focus()
-        dispatchAddress()
-      }
-    }
-  })
-
-  root.querySelectorAll('input').forEach(inp => {
-    inp.addEventListener('input', () => dispatchAddress())
-    inp.addEventListener('change', () => dispatchAddress())
-  })
-
-  if (!defaultCountry) {
-    fetch('https://ipapi.co/country/')
-      .then(r => r.text())
-      .then(code => {
-        if (code && code.length === 2 && field('country').querySelector('option[value="' + code + '"]')) {
-          field('country').value = code
+  // Postal code → cities
+  async function lookupPostal(code, country) {
+    if (!code || !country || code.length < 3) return;
+    st('Looking up postal code…');
+    try {
+      const r = await fetch(API + '/' + country + '/' + code);
+      if (!r.ok) { st('Postal code not found', true); return; }
+      const j = await r.json();
+      _places = j.places || [];
+      if (!_places.length) { st('No results', true); return; }
+      const ci = f('city'), st2 = f('state');
+      if (_places.length === 1) {
+        set('city', _places[0]['place name']);
+        set('state', _places[0]['state']);
+        st('');
+        fetchStreets(code);
+        f('street').focus();
+      } else {
+        let dl = root.querySelector('#addr-cities');
+        if (!dl) { dl = document.createElement('datalist'); dl.id = 'addr-cities'; ci.parentNode.appendChild(dl); }
+        dl.innerHTML = '';
+        const seen = new Set();
+        for (const p of _places) {
+          const k = p['place name'] + '|' + p.state;
+          if (seen.has(k)) continue; seen.add(k);
+          const o = document.createElement('option'); o.value = p['place name']; dl.appendChild(o);
         }
-      })
-      .catch(() => {})
+        set('state', _places[0]['state']);
+        ci.setAttribute('list', 'addr-cities');
+        ci.focus();
+        st(_places.length + ' cities found — select one');
+      }
+      emit();
+    } catch(e) { st('Lookup failed: ' + e.message, true); }
   }
 
-  field('country').addEventListener('change', () => {
-    dispatchAddress()
-  })
-}
+  // Streets lookup
+  async function fetchStreets(postalCode) {
+    if (!postalCode) return;
+    try {
+      const r = await fetch(STREETS_API + postalCode);
+      if (!r.ok) return;
+      const j = await r.json();
+      const dl = root.querySelector('#addr-streets');
+      if (dl && j.calles) {
+        dl.innerHTML = '';
+        for (const c of j.calles) {
+          const o = document.createElement('option'); o.value = c; dl.appendChild(o);
+        }
+      }
+    } catch(e) {}
+  }
 
-init()
+  // Events
+  f('postal_code').addEventListener('input', function(e) {
+    clearTimeout(_timer);
+    _timer = setTimeout(() => lookupPostal(e.target.value, f('country').value), 350);
+  });
+
+  f('country').addEventListener('change', function() {
+    const p = f('postal_code').value;
+    if (p) lookupPostal(p, f('country').value);
+    emit();
+  });
+
+  f('city').addEventListener('input', function() {
+    if (_places && _places.length > 1) {
+      const m = _places.find(p => p['place name'] === f('city').value);
+      if (m) { set('state', m.state); fetchStreets(f('postal_code').value); f('street').focus(); emit(); }
+    }
+  });
+
+  f('street').addEventListener('input', function() {
+    const dl = root.querySelector('#addr-streets');
+    if (dl) {
+      const match = [...dl.options].some(o => o.value === f('street').value);
+      if (match) f('number').focus();
+    }
+    emit();
+  });
+
+  root.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', emit);
+    el.addEventListener('change', emit);
+  });
+
+  // Detect country from IP
+  if (!def) {
+    fetch('https://ipapi.co/country/').then(r => r.text()).then(c => {
+      if (c && c.length === 2 && csel.querySelector('option[value="'+c+'"]')) csel.value = c;
+    }).catch(() => {});
+  }
+})();
 </script>
 </template>
