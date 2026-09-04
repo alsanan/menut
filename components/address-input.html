@@ -40,132 +40,115 @@ select:focus, input:focus { outline: 2px solid var(--accent, oklch(0.55 0.15 260
   <p class="st"></p>
 </form>
 <script>
-(function() {
-  const host = this;
-  const el = host.el || document.currentScript?.closest('[data-component]') || host.querySelector?.('address-input');
-  if (!el) return;
-  const root = el.shadowRoot;
-  if (!root) return;
-  const prefix = el.getAttribute('name') || 'address';
-  const API = 'https://api.zippopotam.us';
-  const STREETS_API = 'https://api.cerocoma.net/festivos/v1/calles/';
-  let _timer = null, _places = null;
+const host = this
+const el = host.el
+const root = el.shadowRoot
+const prefix = el.getAttribute('name') || 'address'
+const API = 'https://api.zippopotam.us'
+const STREETS_API = 'https://api.cerocoma.net/festivos/v1/calles/'
+let _timer = null, _places = null
 
-  function f(n) { return root.querySelector('[data-f="'+n+'"]'); }
-  function set(n, v) { const el = f(n); if (el) el.value = v; }
-  function st(msg, er) {
-    const s = root.querySelector('.st');
-    if (s) { s.textContent = msg; s.classList.toggle('er', !!er); }
-  }
-  function emit() {
-    el.dispatchEvent(new CustomEvent('address-change', {
-      detail: { country: f('country').value, postal_code: f('postal_code').value, city: f('city').value, state: f('state').value, street: f('street').value, number: f('number').value },
-      bubbles: true, composed: true
-    }));
-  }
+function f(n) { return root.querySelector('[data-f="'+n+'"]') }
+function set(n, v) { const e = f(n); if (e) e.value = v }
+function st(msg, er) { const s = root.querySelector('.st'); if (s) { s.textContent = msg; s.classList.toggle('er', !!er) } }
+function emit() {
+  el.dispatchEvent(new CustomEvent('address-change', {
+    detail: { country: f('country').value, postal_code: f('postal_code').value, city: f('city').value, state: f('state').value, street: f('street').value, number: f('number').value },
+    bubbles: true, composed: true
+  }))
+}
 
-  // Wire name attributes
-  root.querySelectorAll('[data-f]').forEach(e => { e.name = prefix + '[' + e.dataset.f + ']'; });
+root.querySelectorAll('[data-f]').forEach(e => { e.name = prefix + '[' + e.dataset.f + ']' })
 
-  // Country list
-  const CL = [["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo, DR"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czech Republic"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KR","South Korea"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]];
-  const csel = f('country');
-  for (const [c, n] of CL) { const o = document.createElement('option'); o.value = c; o.textContent = n; csel.appendChild(o); }
-  const def = el.getAttribute('country');
-  if (def) csel.value = def;
+const CL = [["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo, DR"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czech Republic"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KR","South Korea"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]]
 
-  // Postal code → cities
-  async function lookupPostal(code, country) {
-    if (!code || !country || code.length < 3) return;
-    st('Looking up postal code…');
-    try {
-      const r = await fetch(API + '/' + country + '/' + code);
-      if (!r.ok) { st('Postal code not found', true); return; }
-      const j = await r.json();
-      _places = j.places || [];
-      if (!_places.length) { st('No results', true); return; }
-      const ci = f('city'), st2 = f('state');
-      if (_places.length === 1) {
-        set('city', _places[0]['place name']);
-        set('state', _places[0]['state']);
-        st('');
-        fetchStreets(code);
-        f('street').focus();
-      } else {
-        let dl = root.querySelector('#addr-cities');
-        if (!dl) { dl = document.createElement('datalist'); dl.id = 'addr-cities'; ci.parentNode.appendChild(dl); }
-        dl.innerHTML = '';
-        const seen = new Set();
-        for (const p of _places) {
-          const k = p['place name'] + '|' + p.state;
-          if (seen.has(k)) continue; seen.add(k);
-          const o = document.createElement('option'); o.value = p['place name']; dl.appendChild(o);
-        }
-        set('state', _places[0]['state']);
-        ci.setAttribute('list', 'addr-cities');
-        ci.focus();
-        st(_places.length + ' cities found — select one');
+const csel = f('country')
+for (const [c, n] of CL) { const o = document.createElement('option'); o.value = c; o.textContent = n; csel.appendChild(o) }
+const def = el.getAttribute('country')
+if (def) csel.value = def
+
+async function lookupPostal(code, country) {
+  if (!code || !country || code.length < 3) return
+  st('Looking up postal code…')
+  try {
+    const r = await fetch(API + '/' + country + '/' + code)
+    if (!r.ok) { st('Postal code not found', true); return }
+    const j = await r.json()
+    _places = j.places || []
+    if (!_places.length) { st('No results', true); return }
+    const ci = f('city'), stInp = f('state')
+    if (_places.length === 1) {
+      set('city', _places[0]['place name'])
+      set('state', _places[0]['state'])
+      st('')
+      fetchStreets(code)
+      f('street').focus()
+    } else {
+      let dl = root.querySelector('#addr-cities')
+      if (!dl) { dl = document.createElement('datalist'); dl.id = 'addr-cities'; ci.parentNode.appendChild(dl) }
+      dl.innerHTML = ''
+      const seen = new Set()
+      for (const p of _places) {
+        const k = p['place name'] + '|' + p.state
+        if (seen.has(k)) continue; seen.add(k)
+        const o = document.createElement('option'); o.value = p['place name']; dl.appendChild(o)
       }
-      emit();
-    } catch(e) { st('Lookup failed: ' + e.message, true); }
-  }
-
-  // Streets lookup
-  async function fetchStreets(postalCode) {
-    if (!postalCode) return;
-    try {
-      const r = await fetch(STREETS_API + postalCode);
-      if (!r.ok) return;
-      const j = await r.json();
-      const dl = root.querySelector('#addr-streets');
-      if (dl && j.calles) {
-        dl.innerHTML = '';
-        for (const c of j.calles) {
-          const o = document.createElement('option'); o.value = c; dl.appendChild(o);
-        }
-      }
-    } catch(e) {}
-  }
-
-  // Events
-  f('postal_code').addEventListener('input', function(e) {
-    clearTimeout(_timer);
-    _timer = setTimeout(() => lookupPostal(e.target.value, f('country').value), 350);
-  });
-
-  f('country').addEventListener('change', function() {
-    const p = f('postal_code').value;
-    if (p) lookupPostal(p, f('country').value);
-    emit();
-  });
-
-  f('city').addEventListener('input', function() {
-    if (_places && _places.length > 1) {
-      const m = _places.find(p => p['place name'] === f('city').value);
-      if (m) { set('state', m.state); fetchStreets(f('postal_code').value); f('street').focus(); emit(); }
+      set('state', _places[0]['state'])
+      ci.setAttribute('list', 'addr-cities')
+      ci.focus()
+      st(_places.length + ' cities found — select one')
     }
-  });
+    emit()
+  } catch(e) { st('Lookup failed: ' + e.message, true) }
+}
 
-  f('street').addEventListener('input', function() {
-    const dl = root.querySelector('#addr-streets');
-    if (dl) {
-      const match = [...dl.options].some(o => o.value === f('street').value);
-      if (match) f('number').focus();
+async function fetchStreets(postalCode) {
+  if (!postalCode) return
+  try {
+    const r = await fetch(STREETS_API + postalCode)
+    if (!r.ok) return
+    const j = await r.json()
+    const dl = root.querySelector('#addr-streets')
+    if (dl && j.calles) {
+      dl.innerHTML = ''
+      for (const c of j.calles) { const o = document.createElement('option'); o.value = c; dl.appendChild(o) }
     }
-    emit();
-  });
+  } catch(e) {}
+}
 
-  root.querySelectorAll('input, select').forEach(el => {
-    el.addEventListener('input', emit);
-    el.addEventListener('change', emit);
-  });
+f('postal_code').addEventListener('input', function(e) {
+  clearTimeout(_timer)
+  _timer = setTimeout(() => lookupPostal(e.target.value, f('country').value), 350)
+})
 
-  // Detect country from IP
-  if (!def) {
-    fetch('https://ipapi.co/country/').then(r => r.text()).then(c => {
-      if (c && c.length === 2 && csel.querySelector('option[value="'+c+'"]')) csel.value = c;
-    }).catch(() => {});
+f('country').addEventListener('change', function() {
+  const p = f('postal_code').value
+  if (p) lookupPostal(p, f('country').value)
+  emit()
+})
+
+f('city').addEventListener('input', function() {
+  if (_places && _places.length > 1) {
+    const m = _places.find(p => p['place name'] === f('city').value)
+    if (m) { set('state', m.state); fetchStreets(f('postal_code').value); f('street').focus(); emit() }
   }
-})();
+})
+
+f('street').addEventListener('input', function() {
+  const dl = root.querySelector('#addr-streets')
+  if (dl && [...dl.options].some(o => o.value === f('street').value)) f('number').focus()
+  emit()
+})
+
+root.querySelectorAll('input, select').forEach(inp => {
+  inp.addEventListener('input', emit)
+  inp.addEventListener('change', emit)
+})
+
+if (!def) {
+  fetch('https://ipapi.co/country/').then(r => r.text()).then(c => {
+    if (c && c.length === 2 && csel.querySelector('option[value="'+c+'"]')) csel.value = c
+  }).catch(() => {})
+}
 </script>
 </template>
