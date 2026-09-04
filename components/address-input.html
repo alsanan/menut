@@ -6,25 +6,27 @@
   @attr name – Form field prefix (default "address"). Sub-fields: {name}[country], {name}[postal_code], etc.
   @attr country – Default ISO country code. Detects from IP if omitted.
 -->
-<template shadowrootmode="open">
 <style>
-:host { display: block; }
-form { display: grid; gap: .5rem; font-family: var(--font, system-ui, sans-serif); }
-select, input {
+address-input { display: block; }
+address-input form { display: grid; gap: .5rem; font-family: var(--font, system-ui, sans-serif); }
+address-input select,
+address-input input {
   font: inherit; padding: .45rem .6rem;
   border: 1px solid var(--hairline, oklch(0.88 0.01 90));
   border-radius: var(--radius-btn, 6px);
   background: var(--bg, #fff); color: var(--fg, oklch(0.2 0 0));
   width: 100%; box-sizing: border-box;
 }
-select:focus, input:focus { outline: 2px solid var(--accent, oklch(0.55 0.15 260)); outline-offset: -1px; }
-.row { display: grid; gap: .5rem; }
-.row-3 { grid-template-columns: 2fr 1fr 1fr; }
-.row-2 { grid-template-columns: 1fr 1fr; }
-@media (max-width: 480px) { .row-3, .row-2 { grid-template-columns: 1fr; } }
-.st { font-size: var(--fs-xs, .72rem); color: var(--fg-muted, oklch(0.5 0 0)); min-height: 1em; margin: 0; }
-.st.er { color: var(--err, oklch(0.6 0.22 25)); }
+address-input select:focus,
+address-input input:focus { outline: 2px solid var(--accent, oklch(0.55 0.15 260)); outline-offset: -1px; }
+address-input .row { display: grid; gap: .5rem; }
+address-input .row-3 { grid-template-columns: 2fr 1fr 1fr; }
+address-input .row-2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 480px) { address-input .row-3, address-input .row-2 { grid-template-columns: 1fr; } }
+address-input .st { font-size: var(--fs-xs, .72rem); color: var(--fg-muted, oklch(0.5 0 0)); min-height: 1em; margin: 0; }
+address-input .st.er { color: var(--err, oklch(0.6 0.22 25)); }
 </style>
+
 <form>
   <select data-f="country" autocomplete="country" required><option value="">Select country</option></select>
   <div class="row row-3">
@@ -33,24 +35,23 @@ select:focus, input:focus { outline: 2px solid var(--accent, oklch(0.55 0.15 260
     <input data-f="state" placeholder="State/Province" autocomplete="address-level1">
   </div>
   <div class="row row-2">
-    <input data-f="street" placeholder="Street" autocomplete="address-line1" required list="addr-streets">
+    <input data-f="street" placeholder="Street" autocomplete="address-line1" required list="">
     <input data-f="number" placeholder="Number" autocomplete="address-line2">
   </div>
-  <datalist id="addr-streets"></datalist>
+  <datalist></datalist>
   <p class="st"></p>
 </form>
+
 <script>
-const host = this
-const el = host.el
-const root = el.shadowRoot
+const el = this
 const prefix = el.getAttribute('name') || 'address'
 const API = 'https://api.zippopotam.us'
 const STREETS_API = 'https://api.cerocoma.net/festivos/v1/calles/'
 let _timer = null, _places = null
 
-function f(n) { return root.querySelector('[data-f="'+n+'"]') }
+function f(n) { return el.querySelector('[data-f="'+n+'"]') }
 function set(n, v) { const e = f(n); if (e) e.value = v }
-function st(msg, er) { const s = root.querySelector('.st'); if (s) { s.textContent = msg; s.classList.toggle('er', !!er) } }
+function st(msg, er) { const s = el.querySelector('.st'); if (s) { s.textContent = msg; s.classList.toggle('er', !!er) } }
 function emit() {
   el.dispatchEvent(new CustomEvent('address-change', {
     detail: { country: f('country').value, postal_code: f('postal_code').value, city: f('city').value, state: f('state').value, street: f('street').value, number: f('number').value },
@@ -58,7 +59,7 @@ function emit() {
   }))
 }
 
-root.querySelectorAll('[data-f]').forEach(e => { e.name = prefix + '[' + e.dataset.f + ']' })
+el.querySelectorAll('[data-f]').forEach(e => { e.name = prefix + '[' + e.dataset.f + ']' })
 
 const CL = [["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo, DR"],["CR","Costa Rica"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czech Republic"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["KR","South Korea"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]]
 
@@ -76,7 +77,6 @@ async function lookupPostal(code, country) {
     const j = await r.json()
     _places = j.places || []
     if (!_places.length) { st('No results', true); return }
-    const ci = f('city'), stInp = f('state')
     if (_places.length === 1) {
       set('city', _places[0]['place name'])
       set('state', _places[0]['state'])
@@ -84,8 +84,8 @@ async function lookupPostal(code, country) {
       fetchStreets(code)
       f('street').focus()
     } else {
-      let dl = root.querySelector('#addr-cities')
-      if (!dl) { dl = document.createElement('datalist'); dl.id = 'addr-cities'; ci.parentNode.appendChild(dl) }
+      let dl = el.querySelector('datalist')
+      if (!dl) { dl = document.createElement('datalist'); f('city').parentNode.appendChild(dl) }
       dl.innerHTML = ''
       const seen = new Set()
       for (const p of _places) {
@@ -94,8 +94,8 @@ async function lookupPostal(code, country) {
         const o = document.createElement('option'); o.value = p['place name']; dl.appendChild(o)
       }
       set('state', _places[0]['state'])
-      ci.setAttribute('list', 'addr-cities')
-      ci.focus()
+      f('city').setAttribute('list', '')
+      f('city').focus()
       st(_places.length + ' cities found — select one')
     }
     emit()
@@ -108,7 +108,7 @@ async function fetchStreets(postalCode) {
     const r = await fetch(STREETS_API + postalCode)
     if (!r.ok) return
     const j = await r.json()
-    const dl = root.querySelector('#addr-streets')
+    const dl = el.querySelector('datalist')
     if (dl && j.calles) {
       dl.innerHTML = ''
       for (const c of j.calles) { const o = document.createElement('option'); o.value = c; dl.appendChild(o) }
@@ -135,12 +135,12 @@ f('city').addEventListener('input', function() {
 })
 
 f('street').addEventListener('input', function() {
-  const dl = root.querySelector('#addr-streets')
+  const dl = el.querySelector('datalist')
   if (dl && [...dl.options].some(o => o.value === f('street').value)) f('number').focus()
   emit()
 })
 
-root.querySelectorAll('input, select').forEach(inp => {
+el.querySelectorAll('input, select').forEach(inp => {
   inp.addEventListener('input', emit)
   inp.addEventListener('change', emit)
 })
@@ -151,4 +151,3 @@ if (!def) {
   }).catch(() => {})
 }
 </script>
-</template>
