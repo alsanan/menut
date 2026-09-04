@@ -6,6 +6,7 @@
   @attr name – Form field prefix (default "address"). Sub-fields: {name}[country], {name}[postal_code], etc.
   @attr country – Default ISO country code. Detects from IP if omitted.
 -->
+<template>
 <style>
 address-input { display: block; }
 address-input form { display: grid; gap: .5rem; font-family: var(--font, system-ui, sans-serif); }
@@ -43,7 +44,8 @@ address-input .st.er { color: var(--err, oklch(0.6 0.22 25)); }
 </form>
 
 <script>
-const el = this
+const host = this
+const el = host.el
 const prefix = el.getAttribute('name') || 'address'
 const API = 'https://api.zippopotam.us'
 const STREETS_API = 'https://api.cerocoma.net/festivos/v1/calles/'
@@ -151,3 +153,4 @@ if (!def) {
   }).catch(() => {})
 }
 </script>
+</template>
