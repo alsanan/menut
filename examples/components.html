@@ -119,6 +119,7 @@
   <define-component src="../components/spark-line.html"></define-component>
   <define-component src="../components/cookie-consent.html"></define-component>
   <define-component src="../components/liquid-fill.html"></define-component>
+  <define-component src="../components/address-input.html"></define-component>
   <define-component src="../components/x-countdown.html"></define-component>
   <define-component src="../components/x-inspector.html"></define-component>
   <define-component src="../components/lorem-ipsum.html"></define-component>
@@ -374,6 +375,16 @@
         <p class="usage" style="margin-top:1rem">&lt;mini-calendar value="2026-08-14" week lang="en"&gt;&lt;/mini-calendar&gt;</p>
         <div class="stage"><mini-calendar value="2026-08-14" week lang="en"></mini-calendar></div>
         <p class="note">Week view: shows only the 7 days of the current week containing <code>value</code>.</p>
+      </div>
+
+      <div class="demo">
+        <h3>address-input</h3>
+        <p class="usage">&lt;address-input name="shipping"&gt;&lt;/address-input&gt;</p>
+        <div class="stage">
+          <address-input name="shipping" :on.address-change="document.querySelector('#addr-result').textContent = JSON.stringify(event.detail, null, 2)"></address-input>
+          <pre id="addr-result" style="background:light-dark(#f6f8fa,#161b22);color:light-dark(#24292f,#e6edf3);padding:.5rem;border-radius:6px;font-size:.75rem;margin-top:.5rem;white-space:pre-wrap;min-height:3rem"></pre>
+        </div>
+        <p class="note">Auto-fills city &amp; state from postal code via <a href="https://api.zippopotam.us" target="_blank">zippopotam.us</a>. Detects country from IP. All sub-fields are real <code>&lt;input&gt;</code>/<code>&lt;select&gt;</code> that participate in native form submission. Dispatches <code>address-change</code> with structured <code>{country, postal_code, city, state, street, number}</code>.</p>
       </div>
     </section>
 

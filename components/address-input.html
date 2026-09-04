@@ -1,0 +1,218 @@
+<!--
+  @component address-input
+  @category forms
+  @description Address form component that auto-fills city and state from postal code via zippopotam.us API. Outputs a structured address object usable in forms. Supports all countries with ISO 3166-1 alpha-2 codes.
+  @usage <address-input name="shipping"></address-input> · <address-input name="billing" country="ES"></address-input>
+  @attr name – Form field prefix (default "address"). Each sub-field gets name="{name}[country]", "{name}[postal_code]", etc.
+  @attr country – Default country ISO code (e.g. "US", "ES"). If omitted, detects via ipapi.co.
+  @impl Uses zippopotam.us for postal code → city/state lookup. Dispatches address-change event with structured {country, postal_code, city, state, street, number} object. All sub-fields are real <input>/<select> elements that participate in native form submission.
+-->
+<template shadowrootmode="open">
+<style>
+:host { display: block; }
+.address-form {
+  display: grid;
+  gap: .5rem;
+  font-family: var(--font, system-ui, sans-serif);
+}
+.address-form select,
+.address-form input {
+  font: inherit;
+  padding: .45rem .6rem;
+  border: 1px solid var(--hairline, oklch(0.88 0.01 90));
+  border-radius: var(--radius-btn, 6px);
+  background: var(--bg, #fff);
+  color: var(--fg, oklch(0.2 0 0));
+  width: 100%;
+  box-sizing: border-box;
+}
+.address-form select:focus,
+.address-form input:focus {
+  outline: 2px solid var(--accent, oklch(0.55 0.15 260));
+  outline-offset: -1px;
+}
+.address-row {
+  display: grid;
+  gap: .5rem;
+}
+.address-row-3 { grid-template-columns: 2fr 1fr 1fr; }
+.address-row-2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 480px) {
+  .address-row-3, .address-row-2 { grid-template-columns: 1fr; }
+}
+.address-status {
+  font-size: var(--fs-xs, 0.72rem);
+  color: var(--fg-muted, oklch(0.5 0 0));
+  min-height: 1em;
+  margin: 0;
+}
+.address-status.error { color: var(--err, oklch(0.6 0.22 25)); }
+</style>
+
+<div class="address-form">
+  <select class="address-country" :name="name + '[country]'" autocomplete="country" required>
+    <option value="">Select country</option>
+  </select>
+
+  <div class="address-row address-row-3">
+    <input class="address-postal" :name="name + '[postal_code]'" placeholder="Postal code" autocomplete="postal-code" required>
+    <input class="address-city" :name="name + '[city]'" list="" placeholder="City" autocomplete="address-level2" required>
+    <input class="address-state" :name="name + '[state]'" placeholder="State/Province" autocomplete="address-level1">
+  </div>
+
+  <div class="address-row address-row-2">
+    <input class="address-street" :name="name + '[street]'" placeholder="Street" autocomplete="address-line1" required>
+    <input class="address-number" :name="name + '[number]'" placeholder="Number" autocomplete="address-line2">
+  </div>
+
+  <p class="address-status"></p>
+</div>
+
+<script>
+const host = this
+const el = host.el
+const root = el.shadowRoot
+
+const API = 'https://api.zippopotam.us'
+const COUNTRIES_URL = 'https://restcountries.com/v3.1/all?fields=name,cca2&sort=name'
+
+let _debounceTimer = null
+let _currentData = null
+let _status = null
+
+function $(sel) { return root.querySelector(sel) }
+
+function setStatus(msg, isError) {
+  _status = _status || $('.address-status')
+  if (_status) {
+    _status.textContent = msg
+    _status.classList.toggle('error', !!isError)
+  }
+}
+
+function getSelectedCountry() {
+  return $('.address-country').value
+}
+
+async function loadCountries(defaultCountry) {
+  try {
+    const res = await fetch(COUNTRIES_URL)
+    const data = await res.json()
+    const sel = $('.address-country')
+    for (const c of data) {
+      if (!c.cca2) continue
+      const opt = document.createElement('option')
+      opt.value = c.cca2
+      opt.textContent = c.name?.common || c.cca2
+      sel.appendChild(opt)
+    }
+    if (defaultCountry) sel.value = defaultCountry
+  } catch(e) {
+    setStatus('Failed to load countries', true)
+  }
+}
+
+async function lookupPostal(code, country) {
+  if (!code || !country || code.length < 3) return
+  setStatus('Looking up postal code…')
+  try {
+    const res = await fetch(`${API}/${country}/${code}`)
+    if (!res.ok) { setStatus('Postal code not found', true); return }
+    const json = await res.json()
+    _currentData = json.places || []
+    if (_currentData.length === 0) { setStatus('No results', true); return }
+
+    const cityInput = $('.address-city')
+    const stateInput = $('.address-state')
+
+    if (_currentData.length === 1) {
+      cityInput.value = _currentData[0]['place name']
+      stateInput.value = _currentData[0]['state']
+      setStatus('')
+    } else {
+      cityInput.setAttribute('list', 'address-cities')
+      let dl = root.querySelector('#address-cities')
+      if (!dl) {
+        dl = document.createElement('datalist')
+        dl.id = 'address-cities'
+        cityInput.parentNode.appendChild(dl)
+      }
+      dl.innerHTML = ''
+      const seen = new Set()
+      for (const p of _currentData) {
+        const key = p['place name'] + '|' + p.state
+        if (seen.has(key)) continue
+        seen.add(key)
+        const opt = document.createElement('option')
+        opt.value = p['place name']
+        dl.appendChild(opt)
+      }
+      stateInput.value = _currentData[0]['state']
+      setStatus(`${_currentData.length} cities found — select one`)
+    }
+    dispatchAddress()
+  } catch(e) {
+    setStatus('Lookup failed', true)
+  }
+}
+
+function dispatchAddress() {
+  const addr = getAddress()
+  el.dispatchEvent(new CustomEvent('address-change', {
+    detail: addr,
+    bubbles: true,
+    composed: true
+  }))
+}
+
+function getAddress() {
+  return {
+    country: $('.address-country').value,
+    postal_code: $('.address-postal').value,
+    city: $('.address-city').value,
+    state: $('.address-state').value,
+    street: $('.address-street').value,
+    number: $('.address-number').value
+  }
+}
+
+function init() {
+  const defaultCountry = el.getAttribute('country') || ''
+  loadCountries(defaultCountry)
+
+  $('.address-postal').addEventListener('input', (e) => {
+    clearTimeout(_debounceTimer)
+    _debounceTimer = setTimeout(() => {
+      lookupPostal(e.target.value, getSelectedCountry())
+    }, 350)
+  })
+
+  $('.address-country').addEventListener('change', () => {
+    const postal = $('.address-postal').value
+    if (postal) lookupPostal(postal, getSelectedCountry())
+    dispatchAddress()
+  })
+
+  root.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => dispatchAddress())
+    inp.addEventListener('change', () => dispatchAddress())
+  })
+
+  if (!defaultCountry) {
+    fetch('https://ipapi.co/country/')
+      .then(r => r.text())
+      .then(code => {
+        if (code && code.length === 2) {
+          const sel = $('.address-country')
+          if (sel.querySelector('option[value="' + code + '"]')) {
+            sel.value = code
+          }
+        }
+      })
+      .catch(() => {})
+  }
+}
+
+init()
+</script>
+</template>
