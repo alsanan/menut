@@ -16,7 +16,7 @@
        _.mount();            // the only entry point
 
    Assigning `window._` wraps it in a reactive Proxy and injects the helpers
-   (`mount`, `define`, `qry`, `net`, ...). `_.mount()` walks the DOM looking for
+   (`mount`, `define`, `$`, `net`, ...). `_.mount()` walks the DOM looking for
    attributes starting with `:`. Each attribute creates a "binding" (an effect)
    that knows how to read the state and paint it into the DOM. When a state
    property changes, only the effects that read it re-run. No re-rendering of
@@ -340,7 +340,7 @@
      * of the outer function.
      *
      * Real-world example:
-     *   :on.click="event.preventDefault(); _.qry('#c').innerHTML = marked.parse(await _.net.get('doc.md'))"
+      *   :on.click="event.preventDefault(); _.$('#c').innerHTML = marked.parse(await _.net.get('doc.md'))"
      *
      * `fn` returns the Promise; the listener ignores it (fire-and-forget). If
      * the code throws asynchronously it becomes an unhandled rejected Promise
@@ -1465,8 +1465,8 @@
     //   :on.click="dispatch('x'); await sleep(300)"
     //   :on.click="mount('#zone')"
     const helpers = {
-        qry: sel => document.querySelector(sel),
-        qryAll: sel => [...document.querySelectorAll(sel)],
+        $: sel => document.querySelector(sel),
+        $$: sel => [...document.querySelectorAll(sel)],
         net: {
             get: url => fetch(url).then(r => r.text()),
             json: url => fetch(url).then(r => r.json()),
@@ -1537,7 +1537,7 @@
     }
 
     // Wrap `window._` at ASSIGNMENT time (not inside mount): so `_` becomes
-    // reactive and gets the helpers (qry, net, dispatch, sleep, raf, mount,
+    // reactive and gets the helpers ($, net, dispatch, sleep, raf, mount,
     // define) immediately when you write `window._ = { ... }`. That means
     //   window._ = { ... };
     //   _.mount();          // works without Menut.mount()

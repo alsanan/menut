@@ -23,7 +23,7 @@ no abstractions.
 - A single file, no dependencies, no TypeScript.
 - Use native browser capabilities before inventing APIs.
 - Granular dependency-based reactivity: the whole tree is never re-rendered.
-- `mount()` injects a few tiny helpers into `_` (`qry`, `qryAll`, `net`,
+- `mount()` injects a few tiny helpers into `_` (`$`, `$$`, `net`,
   `dispatch`, `sleep`, `raf`, `mount`, `define`) as non-enumerable properties,
   only if the user didn't define them. See `docs/api.md`.
 

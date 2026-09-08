@@ -36,8 +36,8 @@ are usable as bare identifiers in any directive:
 
 | Helper | What it does |
 |--------|--------------|
-| `qry(sel)` | `document.querySelector(sel)` |
-| `qryAll(sel)` | `[...document.querySelectorAll(sel)]` (array) |
+| `$(sel)` | `document.querySelector(sel)` |
+| `$$(sel)` | `[...document.querySelectorAll(sel)]` (array) |
 | `net.get(url)` | `fetch(url).then(r => r.text())` |
 | `net.json(url)` | `fetch(url).then(r => r.json())` |
 | `net.post(url, data)` | POST JSON → text |
@@ -280,7 +280,7 @@ block**: it accepts plain JavaScript (multiple statements with `;`, `switch`,
 ```html
 <a :on.click="
     event.preventDefault();
-    _.qry('#c').innerHTML = marked.parse(await _.net.get('docs/spec.md'))">Spec</a>
+    _.$('#c').innerHTML = marked.parse(await _.net.get('docs/spec.md'))">Spec</a>
 ```
 
 The single-expression form (`count = count + 1`, `guardar(item)`) and the comma
