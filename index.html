@@ -146,7 +146,7 @@
   })();
   </script>
   <button fab theme :on.click="
-  s=_.qry('meta[name=color-scheme]');
+  s=_.$('meta[name=color-scheme]');
   g=s.getAttribute('content');
   switch(g) {
       case 'light': g='dark'; break;
@@ -343,8 +343,8 @@ _.mount();</x-code-block>
         <table class="directives">
           <thead><tr><th>Helper</th><th>What it does</th></tr></thead>
           <tbody>
-            <tr><td><code>qry(sel)</code></td><td><code>document.querySelector(sel)</code></td></tr>
-            <tr><td><code>qryAll(sel)</code></td><td><code>[...document.querySelectorAll(sel)]</code></td></tr>
+            <tr><td><code>$(sel)</code></td><td><code>document.querySelector(sel)</code></td></tr>
+            <tr><td><code>$$(sel)</code></td><td><code>[...document.querySelectorAll(sel)]</code></td></tr>
             <tr><td><code>net.get(url)</code></td><td><code>fetch(url).then(r =&gt; r.text())</code></td></tr>
             <tr><td><code>net.json(url)</code></td><td><code>fetch(url).then(r =&gt; r.json())</code></td></tr>
             <tr><td><code>net.post(url, data)</code></td><td>POST JSON → text</td></tr>
@@ -716,7 +716,7 @@ _.remove = (index)=> { _.tasks.splice(index, 1); }
       },
 
       async openDoc(href) {
-          const d = _.qry('#contenido');
+          const d = _.$('#contenido');
           d.querySelector('#contenido-body').innerHTML = marked.parse(await _.net.get(href));
           d.showModal();
       }
