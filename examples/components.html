@@ -120,6 +120,7 @@
   <define-component src="../components/cookie-consent.html"></define-component>
   <define-component src="../components/liquid-fill.html"></define-component>
   <define-component src="../components/address-input.html"></define-component>
+  <define-component src="../components/rich-input.html"></define-component>
   <define-component src="../components/x-countdown.html"></define-component>
   <define-component src="../components/x-inspector.html"></define-component>
   <define-component src="../components/lorem-ipsum.html"></define-component>
@@ -385,6 +386,43 @@
           <pre id="addr-result" style="background:light-dark(#f6f8fa,#161b22);color:light-dark(#24292f,#e6edf3);padding:.5rem;border-radius:6px;font-size:.75rem;margin-top:.5rem;white-space:pre-wrap;min-height:3rem"></pre>
         </div>
         <p class="note">Auto-fills city &amp; state from postal code via <a href="https://api.zippopotam.us" target="_blank">zippopotam.us</a>. Detects country from IP. All sub-fields are real <code>&lt;input&gt;</code>/<code>&lt;select&gt;</code> that participate in native form submission. Dispatches <code>address-change</code> with structured <code>{country, postal_code, city, state, street, number}</code>.</p>
+      </div>
+
+      <div class="demo">
+        <h3>rich-input</h3>
+        <p class="usage">&lt;rich-input name="q" placeholder="Search…"&gt;&lt;datalist id="label" label="Record Label"&gt;…&lt;/datalist&gt;&lt;/rich-input&gt;</p>
+        <div class="stage">
+          <rich-input name="q" operators="-" combinators="AND OR" delimiters="()" placeholder="Search music… try: label: year: artist:">
+            <datalist id="label" label="Record Label">
+              <option value="Warp Records"></option>
+              <option value="Ninja Tune"></option>
+              <option value="We Play House Recordings"></option>
+              <option value="XL Recordings"></option>
+              <option value="Kranky"></option>
+              <option value="Keinemusik"></option>
+            </datalist>
+            <datalist id="artist" label="Artist">
+              <option value="Aphex Twin"></option>
+              <option value="Boards of Canada"></option>
+              <option value="Autechre"></option>
+              <option value="Four Tet"></option>
+            </datalist>
+            <datalist id="style" label="Style">
+              <option value="Acid House"></option>
+              <option value="Deep House"></option>
+              <option value="Dub Techno"></option>
+              <option value="Ambient"></option>
+            </datalist>
+            <datalist id="year" label="Release Year" data-type="number">
+              <option value="2026"></option>
+              <option value="2025"></option>
+              <option value="2024"></option>
+            </datalist>
+          </rich-input>
+          <pre id="ri-result" style="background:light-dark(#f6f8fa,#161b22);color:light-dark(#24292f,#e6edf3);padding:.5rem;border-radius:6px;font-size:.75rem;margin-top:.5rem;white-space:pre-wrap;min-height:2rem"
+            :on.input="document.querySelector('#ri-result').textContent = JSON.stringify(event.target.getParsedQuery().tokens.filter(t=>t.type!=='whitespace').map(t=>({type:t.type,keyword:t.keyword,value:t.innerValue,operator:t.operator})), null, 2)"></pre>
+        </div>
+        <p class="note">GitHub-like search with <code>keyword:value</code> filters, dual autocomplete (keywords + values), in-input syntax highlighting via the CSS Custom Highlight API, and squiggly validation of unknown keywords/values. Port of <a href="https://rich-input.netlify.app/" target="_blank">Bramus' <code>&lt;rich-input&gt;</code></a> — configure keywords with nested <code>&lt;datalist&gt;</code>. Uses OpaqueRange (Chromium 152+) or a <code>[contenteditable]</code> fallback. <code>operators</code>, <code>combinators</code> and <code>delimiters</code> are configurable. Type <code>l</code> to see keyword suggestions, or <code>label:"W</code> for values.</p>
       </div>
     </section>
 

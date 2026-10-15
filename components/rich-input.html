@@ -1,0 +1,1494 @@
+<!--
+  @component rich-input
+  @category forms
+  @description GitHub-like search/filter input with keyword:value autocomplete, in-input syntax highlighting, validation, and native form participation. Configure it declaratively by nesting <datalist> elements. Port of Bramus' <rich-input> (https://rich-input.netlify.app/), powered by OpaqueRange, the CSS Custom Highlight API, and <datalist>.
+  @usage <rich-input name="q" placeholder="Search…"><datalist id="label" label="Record Label"><option value="Warp Records"></option></datalist></rich-input>
+  @attr value – Initial query string.
+  @attr placeholder – Placeholder text.
+  @attr name – Form field name (participates in <form> submission).
+  @attr disabled – Disables the control.
+  @attr operators – Space-separated prefix operators (default "-"). E.g. "- ~ +".
+  @attr combinators – Space-separated boolean combinators (default none). E.g. "AND OR".
+  @attr delimiters – Space-separated delimiter pairs (default "()"). E.g. "() [] {}".
+  @attr highlight-quotes – Set to "exclude" to keep quotes unhighlighted.
+  @impl Faithful port of bramus/rich-input. Nested <datalist id label data-type> define keywords and options; <option> may contain an <img> for rich suggestions. Tokenizer + caret context drive a keyword/value/combinator autocomplete popover (HTML Popover API). In-input highlighting uses OpaqueRange (Chromium 152+) or a [contenteditable] fallback (Safari 17.2+/Firefox 141+). CSS Custom Highlight API paints ::highlight(label), ::highlight(rich-input-keyword|operator|combinator|delimiter|invalid). Public API: value, operators, combinators, delimiters, getParsedQuery(), getKeywords(), focus/blur/select/setSelectionRange. Events: input, change, search, rich-input-select.
+-->
+<template shadowrootmode="open">
+<style>
+  :host {
+    display: inline-block;
+    position: relative;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  :host([hidden]),
+  [hidden] {
+    display: none !important;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  .wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .control {
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    background-color: var(--ri-input-bg, #ffffff);
+    border: 1px solid var(--ri-input-border, #d1d5db);
+    border-radius: var(--ri-input-radius, 8px);
+    padding: 0 0.75rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .control:focus-within {
+    border-color: var(--ri-primary, #2563eb);
+    box-shadow: 0 0 0 3px var(--ri-focus-ring, rgba(37, 99, 235, 0.2));
+  }
+
+  :host([disabled]) .control {
+    background-color: var(--ri-disabled-bg, #f3f4f6);
+    border-color: var(--ri-disabled-border, #e5e7eb);
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .search-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-right: 0.5rem;
+    color: var(--ri-icon-color, #9ca3af);
+    background-image: var(--_icon-default-bg, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z' clip-rule='evenodd'/%3E%3C/svg%3E"));
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    font-size: 1rem;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .search-icon[data-has-content] { background-image: none; }
+  .search-icon[data-content-none] { display: none; }
+  .search-icon::before { content: var(--_icon-content, none); }
+
+  .search-input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 0.625rem 0;
+    color: var(--ri-input-color, #111827);
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    box-sizing: border-box;
+  }
+
+  .search-input::-webkit-scrollbar { display: none; }
+  .search-input::placeholder { color: var(--ri-placeholder-color, #9ca3af); }
+  .search-input:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ri-placeholder-color, #9ca3af);
+    pointer-events: none;
+    display: inline-block;
+  }
+
+  :host::highlight(rich-input-operator) {
+    color: var(--ri-operator-color, var(--ri-keyword-color, #64748b));
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  :host::highlight(rich-input-combinator) {
+    color: var(--ri-combinator-color, var(--ri-operator-color, var(--ri-keyword-color, #64748b)));
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  :host::highlight(rich-input-delimiter) {
+    color: var(--ri-delimiter-color, var(--ri-operator-color, var(--ri-keyword-color, #64748b)));
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  :host::highlight(rich-input-keyword) {
+    color: var(--ri-keyword-color, #64748b);
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  :host::highlight(rich-input-invalid) {
+    text-decoration-line: underline;
+    -webkit-text-decoration-line: underline;
+    text-decoration-style: wavy;
+    -webkit-text-decoration-style: wavy;
+    text-decoration-color: var(--ri-invalid-color, #ef4444);
+    -webkit-text-decoration-color: var(--ri-invalid-color, #ef4444);
+    text-decoration-skip-ink: none;
+  }
+
+  .clear-button {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    margin-left: 0.375rem;
+    border: none;
+    border-radius: 9999px;
+    background: var(--ri-clear-bg, #e5e7eb);
+    color: var(--ri-clear-color, #4b5563);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .clear-button[hidden] { display: none !important; }
+  .clear-button:hover { background: var(--ri-clear-hover-bg, #d1d5db); color: var(--ri-clear-hover-color, #111827); }
+  .clear-button svg { width: 1rem; height: 1rem; }
+
+  .popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    padding: 0;
+    min-width: 280px;
+    max-width: 420px;
+    max-height: 290px;
+    overflow-y: auto;
+    background-color: var(--ri-popover-bg, #ffffff);
+    color: var(--ri-item-title-color, #0f172a);
+    border: 1px solid var(--ri-popover-border, #e2e8f0);
+    border-radius: var(--ri-popover-radius, 8px);
+    box-shadow: var(--ri-popover-shadow, 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1));
+    z-index: 10000;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .popover:not(:popover-open) { display: none; }
+
+  .popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--ri-popover-border, #e2e8f0);
+    background-color: var(--ri-header-bg, #f8fafc);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ri-header-color, #64748b);
+  }
+
+  .suggestions-list { list-style: none; margin: 0; padding: 0.25rem 0; }
+
+  .suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    transition: background-color 0.1s ease;
+    user-select: none;
+    color: var(--ri-item-title-color, inherit);
+  }
+  .suggestion-item.selected { background-color: var(--ri-item-selected-bg, rgba(37, 99, 235, 0.06)); }
+  .suggestion-item:hover,
+  .suggestion-item.active { background-color: var(--ri-item-active-bg, #f1f5f9); }
+
+  .suggestion-content { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 0.5rem; }
+  .suggestion-title {
+    font-weight: 600;
+    color: var(--ri-item-title-color, inherit);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .suggestion-desc {
+    font-size: 0.75rem;
+    color: var(--ri-item-desc-color, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .suggestion-image { object-fit: cover; flex-shrink: 0; pointer-events: none; vertical-align: middle; }
+
+  ::slotted(datalist),
+  ::slotted(style) { display: none !important; }
+</style>
+
+<div part="wrapper" class="wrapper">
+  <div part="control" class="control">
+    <span part="icon" class="search-icon" aria-hidden="true"></span>
+    <input
+      part="input"
+      class="search-input"
+      type="text"
+      autocomplete="off"
+      spellcheck="false"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-expanded="false"
+      aria-haspopup="listbox"
+      aria-controls="ri-listbox"
+    />
+    <button part="clear-button" type="button" class="clear-button" aria-label="Clear search query" hidden>
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div part="popover suggestions" class="popover" popover="manual">
+    <div part="suggestions-header" class="popover-header">
+      <span id="ri-listbox-label" part="suggestions-title" class="popover-title">Suggestions</span>
+    </div>
+    <ul id="ri-listbox" part="suggestions-list" class="suggestions-list" role="listbox" aria-labelledby="ri-listbox-label"></ul>
+  </div>
+
+  <slot style="display: none;"></slot>
+</div>
+
+<script>
+const host = this
+const el = host.el
+const root = el.shadowRoot
+
+/* ==========================================================================
+   Shared library (parser + highlights + positioning + contenteditable),
+   defined ONCE on window and reused by every <rich-input> instance.
+   Faithful port of bramus/rich-input.
+   ========================================================================== */
+const RI = (window.__menutRichInput ||= (function () {
+  const DEFAULT_OPERATORS = ['-'];
+  const DEFAULT_COMBINATORS = [];
+  const DEFAULT_DELIMITERS = ['()'];
+
+  function normalizeOperators(operators) {
+    if (operators === undefined) return [...DEFAULT_OPERATORS];
+    if (operators === null || operators === '') return [];
+    const rawList = Array.isArray(operators) ? operators : typeof operators === 'string' ? operators.split(/\s+/) : [];
+    const result = []; const seen = new Set();
+    for (const item of rawList) {
+      if (typeof item !== 'string') continue;
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      for (let part of parts) {
+        part = part.replace(/^(.)\1+$/, '$1');
+        if (!seen.has(part)) { seen.add(part); result.push(part); }
+      }
+    }
+    return result;
+  }
+
+  function normalizeCombinators(combinators) {
+    if (combinators === undefined) return [...DEFAULT_COMBINATORS];
+    if (combinators === null || combinators === '') return [];
+    const rawList = Array.isArray(combinators) ? combinators : typeof combinators === 'string' ? combinators.split(/\s+/) : [];
+    const result = []; const seen = new Set();
+    for (const item of rawList) {
+      if (typeof item !== 'string') continue;
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      for (const part of parts) { if (!seen.has(part)) { seen.add(part); result.push(part); } }
+    }
+    return result;
+  }
+
+  function matchOperator(str, normalizedOperators) {
+    if (!str || !normalizedOperators || normalizedOperators.length === 0) return null;
+    const sorted = [...normalizedOperators].sort((a, b) => b.length - a.length);
+    for (const op of sorted) if (str.startsWith(op)) return op;
+    return null;
+  }
+
+  function normalizeDelimiters(delimiters) {
+    if (delimiters === undefined) return [...DEFAULT_DELIMITERS];
+    if (delimiters === null || delimiters === '') return [];
+    const rawList = Array.isArray(delimiters) ? delimiters : typeof delimiters === 'string' ? delimiters.split(/\s+/) : [];
+    const flatTokens = [];
+    for (const item of rawList) {
+      if (typeof item !== 'string') continue;
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      flatTokens.push(...parts);
+    }
+    const result = []; const seen = new Set();
+    for (let i = 0; i < flatTokens.length; i++) {
+      let token = flatTokens[i];
+      if (token.length === 1 && i + 1 < flatTokens.length && flatTokens[i + 1].length === 1) { token = token + flatTokens[i + 1]; i++; }
+      else if (token.length > 2) { token = token.replace(/(.)\1+/g, '$1'); }
+      if (token.length >= 2 && !seen.has(token)) { seen.add(token); result.push(token); }
+    }
+    return result;
+  }
+
+  function buildDelimiterEntries(normalizedDelims) {
+    const entries = [];
+    if (!normalizedDelims || normalizedDelims.length === 0) return entries;
+    for (const pair of normalizedDelims) {
+      if (typeof pair !== 'string' || pair.length < 2) continue;
+      const open = pair[0]; const close = pair[pair.length - 1];
+      entries.push({ delimiter: open, role: 'open', pair });
+      if (close !== open) entries.push({ delimiter: close, role: 'close', pair });
+    }
+    return entries;
+  }
+
+  function matchDelimiter(str, delimEntries) {
+    if (!str || !delimEntries || delimEntries.length === 0) return null;
+    for (const entry of delimEntries) if (str.startsWith(entry.delimiter)) return entry;
+    return null;
+  }
+
+  function parseSearchTokens(inputStr, operators = DEFAULT_OPERATORS, combinators = DEFAULT_COMBINATORS, delimiters = DEFAULT_DELIMITERS) {
+    if (typeof inputStr !== 'string') return [];
+    const normalizedOps = normalizeOperators(operators);
+    const normalizedCombs = normalizeCombinators(combinators);
+    const normalizedDelims = normalizeDelimiters(delimiters);
+    const delimEntries = buildDelimiterEntries(normalizedDelims);
+    const tokens = [];
+    let i = 0; const len = inputStr.length;
+    while (i < len) {
+      if (/\s/.test(inputStr[i])) {
+        const wsStart = i;
+        while (i < len && /\s/.test(inputStr[i])) i++;
+        tokens.push({ type: 'whitespace', raw: inputStr.slice(wsStart, i), start: wsStart, end: i });
+        continue;
+      }
+      const matchedDelim = matchDelimiter(inputStr.slice(i), delimEntries);
+      if (matchedDelim) {
+        tokens.push({ type: 'delimiter', delimiter: matchedDelim.delimiter, role: matchedDelim.role, pair: matchedDelim.pair, raw: matchedDelim.delimiter, start: i, end: i + matchedDelim.delimiter.length });
+        i += matchedDelim.delimiter.length;
+        continue;
+      }
+      const tokenStart = i;
+      const remaining = inputStr.slice(i);
+      const matchedOp = matchOperator(remaining, normalizedOps);
+      let colonMatch = null; let opLen = 0;
+      if (matchedOp) {
+        const afterOp = remaining.slice(matchedOp.length);
+        const afterOpMatch = afterOp.match(/^([a-zA-Z0-9][a-zA-Z0-9_-]*):/);
+        if (afterOpMatch) { colonMatch = afterOpMatch; opLen = matchedOp.length; }
+      } else {
+        colonMatch = remaining.match(/^([a-zA-Z0-9][a-zA-Z0-9_-]*):/);
+      }
+      if (colonMatch) {
+        const keyword = colonMatch[1];
+        const operator = matchedOp || null;
+        const operatorStart = operator ? tokenStart : null;
+        const operatorEnd = operator ? tokenStart + opLen : null;
+        const keywordStart = tokenStart + opLen;
+        const colonIndex = keywordStart + keyword.length;
+        i = colonIndex + 1;
+        const valueStart = i;
+        let quoted = false; let quoteChar = ''; let isClosed = false; let innerStart = i; let innerEnd = i;
+        if (i < len && (inputStr[i] === '"' || inputStr[i] === "'")) {
+          quoted = true; quoteChar = inputStr[i]; i++; innerStart = i;
+          while (i < len && inputStr[i] !== quoteChar) i++;
+          innerEnd = i;
+          if (i < len && inputStr[i] === quoteChar) { isClosed = true; i++; }
+        } else {
+          innerStart = i;
+          while (i < len && !/\s/.test(inputStr[i]) && !matchDelimiter(inputStr.slice(i), delimEntries)) i++;
+          innerEnd = i; isClosed = true;
+        }
+        const rawValue = inputStr.slice(valueStart, i);
+        const innerValue = inputStr.slice(innerStart, innerEnd);
+        tokens.push({
+          type: 'keyword', raw: inputStr.slice(tokenStart, i), start: tokenStart, end: i,
+          operator, operatorStart, operatorEnd, keyword, keywordLower: keyword.toLowerCase(),
+          keywordStart, keywordEnd: colonIndex + 1, colonIndex, valueStart, valueEnd: i,
+          rawValue, innerValue, innerStart, innerEnd, quoted, quoteChar, isClosed
+        });
+      } else {
+        while (i < len && !/\s/.test(inputStr[i]) && !matchDelimiter(inputStr.slice(i), delimEntries)) i++;
+        const raw = inputStr.slice(tokenStart, i);
+        if (normalizedCombs.includes(raw)) {
+          tokens.push({ type: 'combinator', combinator: raw, raw, start: tokenStart, end: i });
+        } else {
+          const textOp = matchOperator(raw, normalizedOps);
+          const textToken = { type: 'text', raw, start: tokenStart, end: i };
+          if (textOp) { textToken.operator = textOp; textToken.operatorStart = tokenStart; textToken.operatorEnd = tokenStart + textOp.length; }
+          tokens.push(textToken);
+        }
+      }
+    }
+    return tokens;
+  }
+
+  function parseSearchQuery(inputStr, operators = DEFAULT_OPERATORS, combinators = DEFAULT_COMBINATORS, delimiters = DEFAULT_DELIMITERS) {
+    return { raw: inputStr, tokens: parseSearchTokens(inputStr, operators, combinators, delimiters) };
+  }
+
+  function getCaretContext(inputStr, caretPos, configuredKeywords, operators = DEFAULT_OPERATORS, combinators = DEFAULT_COMBINATORS, delimiters = DEFAULT_DELIMITERS) {
+    if (typeof inputStr !== 'string') inputStr = '';
+    caretPos = Math.max(0, Math.min(caretPos || 0, inputStr.length));
+    const tokens = parseSearchTokens(inputStr, operators, combinators, delimiters);
+    let activeToken = null;
+    for (const token of tokens) {
+      if (token.type === 'whitespace' || token.type === 'delimiter') continue;
+      if (caretPos >= token.start && caretPos <= token.end) { activeToken = token; break; }
+    }
+    if (!activeToken || activeToken.type === 'whitespace' || activeToken.type === 'delimiter') {
+      return { mode: 'keyword', query: '', replaceStart: caretPos, replaceEnd: caretPos, caretPos, tokens };
+    }
+    if (activeToken.type === 'keyword') {
+      if (caretPos <= activeToken.colonIndex) {
+        const context = { mode: 'keyword', query: activeToken.keyword, replaceStart: activeToken.keywordStart, replaceEnd: activeToken.colonIndex + 1, caretPos, token: activeToken, tokens };
+        if (activeToken.operator) context.operator = activeToken.operator;
+        return context;
+      } else {
+        const context = {
+          mode: 'value', keyword: activeToken.keyword, keywordLower: activeToken.keywordLower,
+          valuePrefix: activeToken.innerValue, query: activeToken.innerValue, quoted: activeToken.quoted,
+          quoteChar: activeToken.quoteChar || '"', isClosed: activeToken.isClosed,
+          replaceStart: activeToken.valueStart, replaceEnd: activeToken.valueEnd,
+          caretPos, token: activeToken, tokens
+        };
+        if (activeToken.operator) context.operator = activeToken.operator;
+        return context;
+      }
+    }
+    if (activeToken.type === 'combinator') {
+      return { mode: 'keyword', query: activeToken.raw, replaceStart: activeToken.start, replaceEnd: activeToken.end, caretPos, token: activeToken, tokens };
+    }
+    if (activeToken.type === 'text') {
+      if (activeToken.operator) {
+        return { mode: 'keyword', operator: activeToken.operator, query: activeToken.raw.slice(activeToken.operator.length), replaceStart: activeToken.operatorEnd, replaceEnd: activeToken.end, caretPos, token: activeToken, tokens };
+      }
+      return { mode: 'keyword', query: activeToken.raw, replaceStart: activeToken.start, replaceEnd: activeToken.end, caretPos, token: activeToken, tokens };
+    }
+    return { mode: 'none', caretPos, tokens };
+  }
+
+  function getSuggestions(context, configuredKeywords, configuredCombinators = DEFAULT_COMBINATORS) {
+    if (!context || context.mode === 'none') return [];
+    const suggestions = [];
+    if (context.mode === 'keyword') {
+      const q = (context.query || '').toLowerCase().trim();
+      for (const [id, kw] of configuredKeywords.entries()) {
+        const idLower = id.toLowerCase();
+        const labelLower = (kw.label || '').toLowerCase();
+        const matches = !q || idLower.startsWith(q) || labelLower.startsWith(q);
+        if (matches) {
+          suggestions.push({ type: 'keyword', id: kw.id, label: kw.label || kw.id, display: `${kw.id}:`, insertText: `${kw.id}:`, description: kw.label || kw.id, dataType: kw.dataType || 'string' });
+        }
+      }
+      if (!context.operator) {
+        const normalizedCombs = normalizeCombinators(configuredCombinators);
+        if (normalizedCombs.length > 0) {
+          let shouldIncludeCombinators = true;
+          if (!q && Array.isArray(context.tokens)) {
+            const precedingTokens = context.tokens.filter((t) => t.type !== 'whitespace' && t.end <= context.replaceStart);
+            const lastPreceding = precedingTokens[precedingTokens.length - 1];
+            if (precedingTokens.length === 0 || lastPreceding?.type === 'combinator' || (lastPreceding?.type === 'delimiter' && lastPreceding?.role === 'open')) {
+              shouldIncludeCombinators = false;
+            }
+          }
+          if (shouldIncludeCombinators) {
+            for (const comb of normalizedCombs) {
+              const combLower = comb.toLowerCase();
+              if (!q || combLower.startsWith(q)) {
+                suggestions.push({ type: 'combinator', id: comb, combinator: comb, label: comb, display: comb, insertText: comb, description: 'Combinator' });
+              }
+            }
+          }
+        }
+      }
+    } else if (context.mode === 'value') {
+      const kwConfig = configuredKeywords.get(context.keywordLower);
+      if (!kwConfig) return [];
+      const prefix = (context.valuePrefix || '').toLowerCase();
+      for (const opt of kwConfig.options) {
+        const valLower = (opt.value || '').toLowerCase();
+        const lblLower = (opt.label || '').toLowerCase();
+        const txtLower = (opt.text || '').toLowerCase();
+        const matches = !prefix || valLower.includes(prefix) || lblLower.includes(prefix) || txtLower.includes(prefix);
+        if (matches) {
+          const needsQuotes = context.quoted || opt.value.includes(' ') || opt.value.includes(':');
+          const quoteChar = context.quoteChar || '"';
+          const formatted = needsQuotes ? `${quoteChar}${opt.value}${quoteChar}` : opt.value;
+          const displayText = opt.text || opt.value;
+          suggestions.push({
+            type: 'value', keyword: kwConfig.id, keywordLabel: kwConfig.label || kwConfig.id,
+            value: opt.value, label: opt.label || opt.value, display: displayText, insertText: formatted,
+            description: (opt.label && opt.label !== opt.value && opt.label !== displayText) ? opt.label : '',
+            dataType: kwConfig.dataType || 'string', element: opt.element, image: opt.image
+          });
+        }
+      }
+    }
+    return suggestions;
+  }
+
+  function applySuggestion(inputStr, suggestion, context) {
+    const replaceStart = context.replaceStart;
+    const replaceEnd = context.replaceEnd;
+    const before = inputStr.slice(0, replaceStart);
+    let after = inputStr.slice(replaceEnd);
+    let insertText = suggestion.insertText;
+    const followingToken = Array.isArray(context.tokens) ? context.tokens.find((t) => t.start === replaceEnd) : null;
+    const isFollowedByCloseDelimiter = followingToken?.type === 'delimiter' && followingToken?.role === 'close';
+    if (suggestion.type === 'keyword') {
+      if (after.startsWith(':')) after = after.slice(1);
+      else if (context.token?.type !== 'keyword' && after.length > 0 && !/^\s/.test(after) && !isFollowedByCloseDelimiter) after = ' ' + after;
+      const newValue = before + insertText + after;
+      const newCaret = before.length + insertText.length;
+      return { newValue, newCaret };
+    }
+    const hasLeadingSpaceAfter = /^\s/.test(after);
+    if ((after.length === 0 || !hasLeadingSpaceAfter) && !isFollowedByCloseDelimiter) insertText += ' ';
+    const newValue = before + insertText + after;
+    const newCaret = before.length + insertText.length + (hasLeadingSpaceAfter ? 1 : 0);
+    return { newValue, newCaret };
+  }
+
+  function isDatalistValue(kwConfig, value) {
+    if (!kwConfig || !Array.isArray(kwConfig.options) || kwConfig.options.length === 0) return true;
+    const val = (value ?? '').trim().toLowerCase();
+    if (!val) return true;
+    return kwConfig.options.some((opt) => {
+      const optVal = (opt.value ?? '').trim().toLowerCase();
+      const optLabel = (opt.label ?? '').trim().toLowerCase();
+      const optText = (opt.text ?? '').trim().toLowerCase();
+      return optVal === val || optLabel === val || optText === val;
+    });
+  }
+
+  const isOpaqueRangeSupported = typeof HTMLInputElement !== 'undefined' && typeof HTMLInputElement.prototype.createValueRange === 'function';
+  const isHighlightSupported = typeof window !== 'undefined' && typeof window.Highlight !== 'undefined' && typeof CSS !== 'undefined' && 'highlights' in CSS;
+  const isContentEditableFallbackActive = !isOpaqueRangeSupported && isHighlightSupported;
+
+  function isRangeCollapsed(range) {
+    if (!range) return true;
+    if (range.collapsed === true) return true;
+    if (typeof range.startOffset === 'number' && typeof range.endOffset === 'number') {
+      if (range.startOffset === range.endOffset && range.startContainer === range.endContainer) return true;
+    }
+    return false;
+  }
+
+  class HighlightRegistryManager {
+    constructor() { this.instances = new Set(); this.registeredKeywords = new Set(); }
+    register(instance) { this.instances.add(instance); }
+    unregister(instance) { this.instances.delete(instance); this.syncAll(); }
+    recordKeyword(keyword) { if (keyword) this.registeredKeywords.add(keyword.toLowerCase()); }
+    syncAll() {
+      if (!isHighlightSupported) return;
+      const rangesByKeyword = new Map();
+      const allKeywordRanges = []; const allValueRanges = []; const allOperatorRanges = [];
+      const allCombinatorRanges = []; const allDelimiterRanges = []; const allInvalidRanges = [];
+      for (const inst of this.instances) {
+        const instanceRanges = inst.getActiveHighlightRanges();
+        for (const [kw, data] of instanceRanges.entries()) {
+          const kwLower = kw.toLowerCase();
+          this.registeredKeywords.add(kwLower);
+          if (!rangesByKeyword.has(kwLower)) rangesByKeyword.set(kwLower, []);
+          if (data.valueRanges && data.valueRanges.length > 0) { rangesByKeyword.get(kwLower).push(...data.valueRanges); allValueRanges.push(...data.valueRanges); }
+          if (data.keywordRanges && data.keywordRanges.length > 0) allKeywordRanges.push(...data.keywordRanges);
+        }
+        if (typeof inst.getActiveOperatorRanges === 'function') { const r = inst.getActiveOperatorRanges(); if (r && r.length) allOperatorRanges.push(...r); }
+        if (typeof inst.getActiveCombinatorRanges === 'function') { const r = inst.getActiveCombinatorRanges(); if (r && r.length) allCombinatorRanges.push(...r); }
+        if (typeof inst.getActiveDelimiterRanges === 'function') { const r = inst.getActiveDelimiterRanges(); if (r && r.length) allDelimiterRanges.push(...r); }
+        if (typeof inst.getActiveInvalidRanges === 'function') { const r = inst.getActiveInvalidRanges(); if (r && r.length) allInvalidRanges.push(...r); }
+      }
+      const setHl = (name, ranges) => {
+        let hl = CSS.highlights.get(name);
+        if (!hl) { try { hl = new Highlight(); CSS.highlights.set(name, hl); } catch (e) {} }
+        if (hl) { hl.clear(); for (const r of ranges) { try { if (isRangeCollapsed(r)) continue; hl.add(r); } catch (e) {} } }
+      };
+      for (const kw of this.registeredKeywords) setHl(kw, rangesByKeyword.get(kw) || []);
+      setHl('rich-input-operator', allOperatorRanges);
+      setHl('rich-input-combinator', allCombinatorRanges);
+      setHl('rich-input-delimiter', allDelimiterRanges);
+      setHl('rich-input-keyword', allKeywordRanges);
+      setHl('rich-input-value', allValueRanges);
+      let invHl = CSS.highlights.get('rich-input-invalid');
+      if (!invHl) { try { invHl = new Highlight(); CSS.highlights.set('rich-input-invalid', invHl); } catch (e) {} }
+      if (invHl) {
+        try { invHl.priority = 10; } catch (e) {}
+        invHl.clear();
+        for (const r of allInvalidRanges) { try { if (isRangeCollapsed(r)) continue; invHl.add(r); } catch (e) {} }
+      }
+    }
+  }
+  const highlightManager = new HighlightRegistryManager();
+
+  let mirrorDiv = null;
+  function getMirrorDiv() {
+    if (typeof document === 'undefined') return null;
+    if (!mirrorDiv || !mirrorDiv.isConnected) {
+      mirrorDiv = document.createElement('div');
+      mirrorDiv.setAttribute('aria-hidden', 'true');
+      Object.assign(mirrorDiv.style, { position: 'absolute', top: '-9999px', left: '-9999px', visibility: 'hidden', pointerEvents: 'none', whiteSpace: 'pre', display: 'inline-block', width: 'auto', height: 'auto', margin: '0', padding: '0', border: '0' });
+      (document.body || document.documentElement).appendChild(mirrorDiv);
+    }
+    return mirrorDiv;
+  }
+
+  function getCaretLeftWithMirrorDiv(input, target) {
+    const inputRect = input.getBoundingClientRect();
+    const value = input.value || '';
+    let offset = value.length;
+    if (typeof target === 'number') offset = target;
+    else if (target && typeof target.startOffset === 'number') offset = target.startOffset;
+    else if (typeof input.selectionStart === 'number') offset = input.selectionStart;
+    offset = Math.max(0, Math.min(offset, value.length));
+    const mirror = getMirrorDiv();
+    if (!mirror) return inputRect.left;
+    const computed = window.getComputedStyle(input);
+    for (const prop of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariant', 'fontStretch', 'letterSpacing', 'wordSpacing', 'textTransform', 'textIndent', 'direction']) mirror.style[prop] = computed[prop];
+    mirror.textContent = value.slice(0, offset);
+    const textWidth = mirror.getBoundingClientRect().width;
+    const isRtl = computed.direction === 'rtl';
+    let left;
+    if (isRtl) {
+      const borderRight = parseFloat(computed.borderRightWidth) || 0;
+      const paddingRight = parseFloat(computed.paddingRight) || 0;
+      left = inputRect.right - borderRight - paddingRight - textWidth + (input.scrollLeft || 0);
+    } else {
+      const borderLeft = parseFloat(computed.borderLeftWidth) || 0;
+      const paddingLeft = parseFloat(computed.paddingLeft) || 0;
+      left = inputRect.left + borderLeft + paddingLeft + textWidth - (input.scrollLeft || 0);
+    }
+    return Math.max(inputRect.left, Math.min(left, inputRect.right));
+  }
+
+  function getCaretCoordinates(input, target) {
+    const inputRect = input.getBoundingClientRect();
+    if (!isOpaqueRangeSupported) {
+      return { left: getCaretLeftWithMirrorDiv(input, target), top: inputRect.top, bottom: inputRect.bottom, height: inputRect.height, isCaret: false };
+    }
+    let rect = null; let tempRange = null;
+    if (target && typeof target.getBoundingClientRect === 'function') {
+      try { const r = target.getBoundingClientRect(); if (r.height > 0 || r.width > 0 || r.left > 0) rect = r; } catch (e) {}
+    } else if (typeof input.createValueRange === 'function' && input.value.length > 0) {
+      try {
+        const pos = Math.max(0, Math.min(typeof target === 'number' ? target : 0, input.value.length));
+        tempRange = input.createValueRange(pos, pos);
+        const r = tempRange.getBoundingClientRect();
+        if (r.height > 0 || r.width > 0 || r.left > 0) rect = r;
+      } catch (e) {}
+    }
+    if (tempRange) { try { tempRange.disconnect(); } catch (e) {} }
+    if (rect) {
+      return { left: Math.max(inputRect.left, Math.min(rect.left, inputRect.right)), top: rect.top > 0 ? rect.top : inputRect.top, bottom: rect.bottom > 0 ? rect.bottom : inputRect.bottom, height: rect.height || inputRect.height, isCaret: true };
+    }
+    return { left: inputRect.left, top: inputRect.top, bottom: inputRect.bottom, height: inputRect.height, isCaret: false };
+  }
+
+  function positionPopover(popover, caretCoords, inputElement) {
+    if (!popover) return;
+    if (!caretCoords && inputElement) caretCoords = getCaretCoordinates(inputElement);
+    if (!caretCoords) return;
+    const popoverWidth = popover.offsetWidth || 280;
+    const popoverHeight = popover.offsetHeight || 220;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    let left = caretCoords.left;
+    if (left + popoverWidth > viewportWidth - 12) left = viewportWidth - popoverWidth - 12;
+    if (left < 12) left = 12;
+    let top = caretCoords.bottom + 6;
+    if (top + popoverHeight > viewportHeight - 12) {
+      const spaceAbove = caretCoords.top - 6;
+      if (spaceAbove >= popoverHeight) top = spaceAbove - popoverHeight;
+    }
+    popover.style.margin = '0';
+    popover.style.inset = 'auto';
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  }
+
+  function getOffsetInElement(containerEl, container, offset) {
+    if (!containerEl || !container) return null;
+    if (!containerEl.contains(container) && containerEl !== container) return null;
+    try { const range = document.createRange(); range.selectNodeContents(containerEl); range.setEnd(container, offset); return range.toString().length; } catch (e) { return null; }
+  }
+
+  function getCaretOffsetFromPoint(containerEl, clientX, clientY) {
+    if (typeof document === 'undefined') return null;
+    if (typeof document.caretRangeFromPoint === 'function') {
+      try { const range = document.caretRangeFromPoint(clientX, clientY); if (range && range.startContainer) { const o = getOffsetInElement(containerEl, range.startContainer, range.startOffset); if (o !== null) return o; } } catch (e) {}
+    }
+    if (typeof document.caretPositionFromPoint === 'function') {
+      try { const pos = document.caretPositionFromPoint(clientX, clientY); if (pos && pos.offsetNode) { const o = getOffsetInElement(containerEl, pos.offsetNode, pos.offset); if (o !== null) return o; } } catch (e) {}
+    }
+    return null;
+  }
+
+  function getCaretCharacterOffset(containerEl, isStart = true) {
+    if (typeof window === 'undefined') return 0;
+    const r = typeof containerEl.getRootNode === 'function' ? containerEl.getRootNode() : null;
+    let range = null;
+    if (r && typeof r.getSelection === 'function') {
+      try { const sel = r.getSelection(); if (sel && sel.rangeCount > 0) range = sel.getRangeAt(0); } catch (e) {}
+    }
+    const sel = window.getSelection ? window.getSelection() : null;
+    if (!range && sel && typeof sel.getComposedRanges === 'function' && r) {
+      try { const composed = sel.getComposedRanges({ shadowRoots: [r] }); if (composed && composed.length > 0) range = composed[0]; } catch (e) {}
+    }
+    if (!range && sel && sel.rangeCount > 0) { try { range = sel.getRangeAt(0); } catch (e) {} }
+    if (range) {
+      const container = isStart ? range.startContainer : range.endContainer;
+      const offset = isStart ? range.startOffset : range.endOffset;
+      const pos = getOffsetInElement(containerEl, container, offset);
+      if (pos !== null) { containerEl._lastCaretOffset = pos; return pos; }
+    }
+    return typeof containerEl._lastCaretOffset === 'number' ? containerEl._lastCaretOffset : 0;
+  }
+
+  function getSingleTextNode(containerEl) {
+    if (!containerEl.firstChild) { const tn = document.createTextNode(''); containerEl.appendChild(tn); return tn; }
+    if (containerEl.childNodes.length === 1 && containerEl.firstChild.nodeType === 3) return containerEl.firstChild;
+    containerEl.normalize();
+    if (containerEl.childNodes.length === 1 && containerEl.firstChild.nodeType === 3) return containerEl.firstChild;
+    const text = containerEl.textContent || '';
+    containerEl.textContent = text;
+    return containerEl.firstChild || containerEl.appendChild(document.createTextNode(''));
+  }
+
+  function setCaretCharacterOffset(containerEl, start, end = start) {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const textNode = getSingleTextNode(containerEl);
+    const len = (textNode.textContent || '').length;
+    const s = Math.max(0, Math.min(start ?? 0, len));
+    const e = Math.max(0, Math.min(end ?? s, len));
+    containerEl._lastCaretOffset = s;
+    const r = typeof containerEl.getRootNode === 'function' ? containerEl.getRootNode() : null;
+    const sel = (r && typeof r.getSelection === 'function') ? r.getSelection() : window.getSelection();
+    if (!sel) return;
+    if (typeof sel.setBaseAndExtent === 'function') { try { sel.setBaseAndExtent(textNode, s, textNode, e); return; } catch (err) {} }
+    try { const range = document.createRange(); range.setStart(textNode, s); range.setEnd(textNode, e); sel.removeAllRanges(); sel.addRange(range); } catch (err) {}
+  }
+
+  function setupContentEditableAdapter(containerEl, hostEl) {
+    containerEl._lastCaretOffset = 0;
+    containerEl.setAttribute('contenteditable', 'plaintext-only');
+    if (containerEl.contentEditable !== 'plaintext-only') containerEl.setAttribute('contenteditable', 'true');
+    const updateCaret = (e) => {
+      if (e && typeof e.clientX === 'number' && typeof e.clientY === 'number') {
+        const offset = getCaretOffsetFromPoint(containerEl, e.clientX, e.clientY);
+        if (offset !== null) { containerEl._lastCaretOffset = offset; return; }
+      }
+      const fromSel = getCaretCharacterOffset(containerEl, true);
+      if (typeof fromSel === 'number') containerEl._lastCaretOffset = fromSel;
+    };
+    for (const ev of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'keyup']) containerEl.addEventListener(ev, updateCaret);
+    if (typeof document !== 'undefined') {
+      const onSel = () => {
+        const r = typeof containerEl.getRootNode === 'function' ? containerEl.getRootNode() : null;
+        const activeEl = r && r.activeElement ? r.activeElement : document.activeElement;
+        if (activeEl === containerEl || containerEl.contains(activeEl)) {
+          const offset = getCaretCharacterOffset(containerEl, true);
+          if (typeof offset === 'number') containerEl._lastCaretOffset = offset;
+        }
+      };
+      document.addEventListener('selectionchange', onSel);
+    }
+    containerEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+    containerEl.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const clipboard = e.clipboardData || window.clipboardData;
+      const text = (clipboard?.getData('text/plain') || '').replace(/\r?\n/g, ' ');
+      if (text) {
+        if (typeof document.execCommand === 'function') document.execCommand('insertText', false, text);
+        else {
+          const start = containerEl.selectionStart;
+          const current = containerEl.textContent || '';
+          containerEl.textContent = current.slice(0, start) + text + current.slice(containerEl.selectionEnd);
+          setCaretCharacterOffset(containerEl, start + text.length);
+          containerEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    });
+    containerEl.addEventListener('input', () => {
+      if (!containerEl.textContent) { containerEl.replaceChildren(); containerEl._lastCaretOffset = 0; }
+      else containerEl._lastCaretOffset = getCaretCharacterOffset(containerEl, true);
+    });
+    Object.defineProperty(containerEl, 'value', {
+      get() { return containerEl.textContent || ''; },
+      set(val) { const next = val || ''; if (containerEl.textContent !== next) { containerEl.textContent = next; containerEl._lastCaretOffset = Math.min(containerEl._lastCaretOffset || 0, next.length); } },
+      configurable: true
+    });
+    Object.defineProperty(containerEl, 'placeholder', {
+      get() { return containerEl.getAttribute('data-placeholder') || ''; },
+      set(val) { if (val) containerEl.setAttribute('data-placeholder', val); else containerEl.removeAttribute('data-placeholder'); },
+      configurable: true
+    });
+    Object.defineProperty(containerEl, 'disabled', {
+      get() { return containerEl.hasAttribute('disabled') || containerEl.contentEditable === 'false'; },
+      set(val) { if (val) { containerEl.setAttribute('disabled', ''); containerEl.setAttribute('contenteditable', 'false'); } else { containerEl.removeAttribute('disabled'); containerEl.setAttribute('contenteditable', 'plaintext-only'); if (containerEl.contentEditable !== 'plaintext-only') containerEl.setAttribute('contenteditable', 'true'); } },
+      configurable: true
+    });
+    Object.defineProperty(containerEl, 'readOnly', {
+      get() { return containerEl.contentEditable === 'false'; },
+      set(val) { if (val) containerEl.setAttribute('contenteditable', 'false'); else { containerEl.setAttribute('contenteditable', 'plaintext-only'); if (containerEl.contentEditable !== 'plaintext-only') containerEl.setAttribute('contenteditable', 'true'); } },
+      configurable: true
+    });
+    Object.defineProperty(containerEl, 'selectionStart', {
+      get() { return getCaretCharacterOffset(containerEl, true); },
+      set(val) { const currentEnd = getCaretCharacterOffset(containerEl, false); setCaretCharacterOffset(containerEl, val, Math.max(val, currentEnd)); },
+      configurable: true
+    });
+    Object.defineProperty(containerEl, 'selectionEnd', {
+      get() { return getCaretCharacterOffset(containerEl, false); },
+      set(val) { const currentStart = getCaretCharacterOffset(containerEl, true); setCaretCharacterOffset(containerEl, Math.min(val, currentStart), val); },
+      configurable: true
+    });
+    Object.defineProperty(containerEl, 'selectionDirection', { value: 'forward', writable: true, configurable: true });
+    containerEl.setSelectionRange = function (start, end) { setCaretCharacterOffset(containerEl, start, end); };
+    containerEl.select = function () { setCaretCharacterOffset(containerEl, 0, (containerEl.textContent || '').length); };
+    containerEl.updateCaretFromPoint = function (clientX, clientY) {
+      if (typeof clientX === 'number' && typeof clientY === 'number') {
+        const offset = getCaretOffsetFromPoint(containerEl, clientX, clientY);
+        if (offset !== null) { containerEl._lastCaretOffset = offset; return containerEl._lastCaretOffset; }
+      }
+      const offset = getCaretCharacterOffset(containerEl, true);
+      if (typeof offset === 'number') containerEl._lastCaretOffset = offset;
+      return containerEl._lastCaretOffset;
+    };
+    containerEl.createValueRange = function (start, end) {
+      const textNode = getSingleTextNode(containerEl);
+      const len = (textNode.textContent || '').length;
+      const s = Math.max(0, Math.min(start ?? 0, len));
+      const e = Math.max(0, Math.min(end ?? s, len));
+      const range = new Range();
+      range.setStart(textNode, s);
+      range.setEnd(textNode, e);
+      range.disconnect = () => {};
+      return range;
+    };
+    containerEl.checkValidity = () => true;
+    containerEl.reportValidity = () => true;
+    containerEl.validity = { valid: true };
+    containerEl.validationMessage = '';
+    return containerEl;
+  }
+
+  return {
+    DEFAULT_OPERATORS, DEFAULT_COMBINATORS, DEFAULT_DELIMITERS,
+    normalizeOperators, normalizeCombinators, normalizeDelimiters,
+    parseSearchTokens, parseSearchQuery, getCaretContext, getSuggestions, applySuggestion, isDatalistValue,
+    isOpaqueRangeSupported, isHighlightSupported, isContentEditableFallbackActive,
+    highlightManager, getCaretCoordinates, positionPopover, setupContentEditableAdapter
+  };
+})());
+
+/* ==========================================================================
+   Instance logic (port of the RichInput custom element lifecycle)
+   ========================================================================== */
+const {
+  DEFAULT_OPERATORS, DEFAULT_COMBINATORS, DEFAULT_DELIMITERS,
+  normalizeOperators, normalizeCombinators, normalizeDelimiters,
+  parseSearchQuery, getCaretContext, getSuggestions, applySuggestion, isDatalistValue,
+  isOpaqueRangeSupported, isHighlightSupported, isContentEditableFallbackActive,
+  highlightManager, getCaretCoordinates, positionPopover, setupContentEditableAdapter
+} = RI;
+
+const KEYWORD_SUGGESTION_DELAY = 300;
+const GLOBALS = (window.__menutRichInputDefaults ||= { operators: [...DEFAULT_OPERATORS], combinators: [...DEFAULT_COMBINATORS], delimiters: [...DEFAULT_DELIMITERS] });
+
+let _input = root.querySelector('.search-input');
+const _popover = root.querySelector('.popover');
+const _popoverTitle = root.querySelector('.popover-title');
+const _suggestionsList = root.querySelector('.suggestions-list');
+const _clearBtn = root.querySelector('.clear-button');
+const _icon = root.querySelector('.search-icon');
+const _slot = root.querySelector('slot:not([name])');
+
+if (isContentEditableFallbackActive) {
+  const editableDiv = document.createElement('div');
+  editableDiv.className = 'search-input';
+  editableDiv.setAttribute('part', 'input');
+  editableDiv.setAttribute('role', 'combobox');
+  editableDiv.setAttribute('aria-autocomplete', 'list');
+  editableDiv.setAttribute('aria-expanded', 'false');
+  editableDiv.setAttribute('aria-haspopup', 'listbox');
+  editableDiv.setAttribute('aria-controls', 'ri-listbox');
+  editableDiv.setAttribute('spellcheck', 'false');
+  editableDiv.setAttribute('tabindex', '0');
+  _input.replaceWith(editableDiv);
+  _input = setupContentEditableAdapter(editableDiv, el);
+}
+
+let _configuredKeywords = new Map();
+let _operators = [...GLOBALS.operators];
+let _combinators = [...GLOBALS.combinators];
+let _delimiters = [...GLOBALS.delimiters];
+let _activeSuggestions = [];
+let _selectedIndex = -1;
+let _context = null;
+let _suggestionTimeout = null;
+let _ownedRanges = [];
+let _invalidRanges = [];
+let _operatorRanges = [];
+let _combinatorRanges = [];
+let _delimiterRanges = [];
+let _activeKeywordHighlightMap = new Map();
+let _isFocused = false;
+let _lastCaretPosition = -1;
+let _lastIconColor = null;
+
+function extractHighlightRules(rules) {
+  let css = '';
+  for (const rule of rules) {
+    try {
+      if (rule.cssRules && rule.cssRules.length > 0) css += extractHighlightRules(rule.cssRules);
+      else if (rule.cssText && rule.cssText.includes('::highlight')) css += rule.cssText + '\n';
+    } catch (e) {}
+  }
+  return css;
+}
+
+function syncDocumentHighlightStyles(shadowRoot) {
+  if (typeof document === 'undefined' || !shadowRoot || !isContentEditableFallbackActive) return;
+  try {
+    let highlightCss = '';
+    for (const sheet of document.styleSheets) {
+      try { if (sheet.cssRules) highlightCss += extractHighlightRules(sheet.cssRules); } catch (e) {}
+    }
+    if (highlightCss) {
+      let styleEl = shadowRoot.getElementById('ri-synced-highlight-styles');
+      if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'ri-synced-highlight-styles'; shadowRoot.appendChild(styleEl); }
+      if (styleEl.textContent !== highlightCss) styleEl.textContent = highlightCss;
+    }
+  } catch (e) {}
+}
+
+function loadDatalists() {
+  const datalists = el.querySelectorAll('datalist');
+  const newMap = new Map();
+  for (const dl of datalists) {
+    const id = dl.id ? dl.id.trim() : null;
+    if (!id) continue;
+    const idLower = id.toLowerCase();
+    const rawLabel = dl.hasAttribute('label') ? dl.getAttribute('label').trim() : null;
+    const label = rawLabel || id.charAt(0).toUpperCase() + id.slice(1);
+    const dataType = dl.dataset.type || dl.getAttribute('type') || 'string';
+    const options = [];
+    for (const opt of dl.querySelectorAll('option')) {
+      const textContent = opt.textContent.trim();
+      const value = opt.hasAttribute('value') ? opt.getAttribute('value') : textContent;
+      const optLabel = opt.getAttribute('label') || textContent || value;
+      const imgEl = opt.querySelector('img');
+      if (value) options.push({ value, label: optLabel, text: textContent || value, element: opt, image: imgEl ? imgEl.cloneNode(true) : null });
+    }
+    newMap.set(idLower, { id, idLower, label, rawLabel, dataType, options });
+    highlightManager.recordKeyword(idLower);
+  }
+  _configuredKeywords = newMap;
+}
+
+function syncInjectedStyles() {
+  const styleEls = el.querySelectorAll('style');
+  let customCss = '';
+  for (const styleEl of styleEls) if (styleEl.textContent) customCss += styleEl.textContent + '\n';
+  let targetStyle = root.getElementById('ri-injected-styles');
+  if (customCss.trim()) {
+    if (!targetStyle) { targetStyle = document.createElement('style'); targetStyle.id = 'ri-injected-styles'; root.appendChild(targetStyle); }
+    if (targetStyle.textContent !== customCss) targetStyle.textContent = customCss;
+  } else if (targetStyle) targetStyle.remove();
+}
+
+function syncIconStyle() {
+  if (!_icon || typeof window === 'undefined' || typeof getComputedStyle !== 'function') return;
+  const cs = getComputedStyle(_icon);
+  const content = cs.content;
+  const color = cs.color || '#9ca3af';
+  if (_lastIconColor !== color) {
+    _lastIconColor = color;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="${color}"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>`;
+    _icon.style.setProperty('--_icon-default-bg', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+  }
+  if (content === 'none') {
+    _icon.setAttribute('data-has-content', '');
+    _icon.setAttribute('data-content-none', '');
+    _icon.style.removeProperty('--_icon-content');
+    return;
+  }
+  _icon.removeAttribute('data-content-none');
+  if (content && content !== 'normal') {
+    _icon.setAttribute('data-has-content', '');
+    if (content.startsWith('"') || content.startsWith("'")) {
+      if (_icon.style.getPropertyValue('--_icon-content') !== content) _icon.style.setProperty('--_icon-content', content);
+    } else _icon.style.removeProperty('--_icon-content');
+    return;
+  }
+  _icon.style.removeProperty('--_icon-content');
+  const beforeContent = getComputedStyle(_icon, '::before').content;
+  if (beforeContent && beforeContent !== 'none' && beforeContent !== 'normal') _icon.setAttribute('data-has-content', '');
+  else _icon.removeAttribute('data-has-content');
+}
+
+function disconnectOwnedRanges() {
+  for (const r of _ownedRanges) { try { r.disconnect(); } catch (e) {} }
+  _ownedRanges = [];
+  _invalidRanges = [];
+  _operatorRanges = [];
+  _combinatorRanges = [];
+  _delimiterRanges = [];
+  _activeKeywordHighlightMap.clear();
+}
+
+function updateHighlights() {
+  disconnectOwnedRanges();
+  if (!isHighlightSupported) return;
+  if (!isOpaqueRangeSupported && typeof _input?.createValueRange !== 'function') return;
+  syncInjectedStyles();
+  syncDocumentHighlightStyles(root);
+  const text = _input.value;
+  if (!text) { highlightManager.syncAll(); return; }
+  const tokens = RI.parseSearchTokens(text, _operators, _combinators, _delimiters);
+  const highlightQuotes = el.getAttribute('highlight-quotes') !== 'exclude';
+  const isFocused = _isFocused;
+  const caretStart = typeof _input.selectionStart === 'number' ? _input.selectionStart : null;
+  const caretEnd = typeof _input.selectionEnd === 'number' ? _input.selectionEnd : null;
+  const selMin = caretStart !== null ? Math.min(caretStart, caretEnd ?? caretStart) : -1;
+  const selMax = caretEnd !== null ? Math.max(caretStart ?? caretEnd, caretEnd) : -1;
+  for (const token of tokens) {
+    if (token.type === 'keyword' && _configuredKeywords.has(token.keywordLower)) {
+      const kw = token.keywordLower;
+      const kwConfig = _configuredKeywords.get(kw);
+      if (!_activeKeywordHighlightMap.has(kw)) _activeKeywordHighlightMap.set(kw, { valueRanges: [], keywordRanges: [] });
+      const bucket = _activeKeywordHighlightMap.get(kw);
+      if (token.operator && token.operatorEnd > token.operatorStart && token.operatorEnd <= text.length) {
+        try { const opRange = _input.createValueRange(token.operatorStart, token.operatorEnd); _ownedRanges.push(opRange); _operatorRanges.push(opRange); } catch (e) {}
+      }
+      const start = highlightQuotes ? token.valueStart : token.innerStart;
+      const end = highlightQuotes ? token.valueEnd : token.innerEnd;
+      if (end > start && end <= text.length) {
+        try { const valRange = _input.createValueRange(start, end); _ownedRanges.push(valRange); bucket.valueRanges.push(valRange); } catch (e) {}
+      }
+      if (token.keywordEnd > token.keywordStart && token.keywordEnd <= text.length) {
+        try { const kwRange = _input.createValueRange(token.keywordStart, token.keywordEnd); _ownedRanges.push(kwRange); bucket.keywordRanges.push(kwRange); } catch (e) {}
+      }
+      const isEditingToken = isFocused && selMin !== -1 && selMax >= token.start && selMin <= token.end;
+      const hasValue = Boolean(token.innerValue && token.innerValue.trim().length > 0);
+      if (hasValue && !isEditingToken && !isDatalistValue(kwConfig, token.innerValue)) {
+        if (end > start && end <= text.length) {
+          try { const invRange = _input.createValueRange(start, end); _ownedRanges.push(invRange); _invalidRanges.push(invRange); } catch (e) {}
+        }
+      }
+    } else if (token.type === 'keyword') {
+      const isEditingToken = isFocused && selMin !== -1 && selMax >= token.start && selMin <= token.end;
+      if (!isEditingToken) {
+        const start = token.start; const end = token.end;
+        if (end > start && end <= text.length) {
+          try { const invRange = _input.createValueRange(start, end); _ownedRanges.push(invRange); _invalidRanges.push(invRange); } catch (e) {}
+        }
+      }
+    } else if (token.type === 'combinator') {
+      if (token.end > token.start && token.end <= text.length) {
+        try { const combRange = _input.createValueRange(token.start, token.end); _ownedRanges.push(combRange); _combinatorRanges.push(combRange); } catch (e) {}
+      }
+    } else if (token.type === 'delimiter') {
+      if (token.end > token.start && token.end <= text.length) {
+        try { const delimRange = _input.createValueRange(token.start, token.end); _ownedRanges.push(delimRange); _delimiterRanges.push(delimRange); } catch (e) {}
+      }
+    } else if (token.type === 'text' && token.operator) {
+      const remainder = token.raw.slice(token.operator.length).toLowerCase();
+      const matchesKeywordPrefix = remainder.length === 0 || Array.from(_configuredKeywords.keys()).some((k) => k.startsWith(remainder));
+      if (matchesKeywordPrefix && token.operatorEnd > token.operatorStart && token.operatorEnd <= text.length) {
+        try { const opRange = _input.createValueRange(token.operatorStart, token.operatorEnd); _ownedRanges.push(opRange); _operatorRanges.push(opRange); } catch (e) {}
+      }
+    }
+  }
+  highlightManager.syncAll();
+}
+
+const api = {
+  getActiveHighlightRanges() { return _activeKeywordHighlightMap; },
+  getActiveOperatorRanges() { return _operatorRanges; },
+  getActiveCombinatorRanges() { return _combinatorRanges; },
+  getActiveDelimiterRanges() { return _delimiterRanges; },
+  getActiveInvalidRanges() { return _invalidRanges; }
+};
+
+function updateClearButton() { if (_clearBtn && _input) _clearBtn.hidden = _input.value.length === 0; }
+function isPopoverOpen() { try { return _popover && _popover.matches(':popover-open'); } catch (e) { return false; } }
+function setFormValue() { if (el._internals && typeof el._internals.setFormValue === 'function') { try { el._internals.setFormValue(_input.value); } catch (e) {} } }
+
+function getCurrentOpaqueRange() {
+  if (!_context) return null;
+  if (!isOpaqueRangeSupported && typeof _input?.createValueRange !== 'function') return null;
+  const { mode, token, caretPos } = _context;
+  if (mode === 'value' && token) {
+    const kwData = _activeKeywordHighlightMap.get(token.keywordLower);
+    if (kwData?.valueRanges?.length) {
+      const matched = kwData.valueRanges.find((r) => r.startOffset === token.valueStart || (r.startOffset <= caretPos && r.endOffset >= token.valueStart));
+      if (matched) return matched;
+    }
+  }
+  if (mode === 'keyword' && token && token.type === 'keyword') {
+    const kwData = _activeKeywordHighlightMap.get(token.keywordLower);
+    if (kwData?.keywordRanges?.length) {
+      const targetStart = token.keywordStart ?? token.start;
+      const matched = kwData.keywordRanges.find((r) => r.startOffset === targetStart || (r.startOffset <= caretPos && r.endOffset >= targetStart));
+      if (matched) return matched;
+    }
+  }
+  if (token) {
+    const targetStart = mode === 'value' ? token.valueStart : (token.keywordStart ?? token.start);
+    const matched = _ownedRanges.find((r) => r.startOffset === targetStart);
+    if (matched) return matched;
+  }
+  return null;
+}
+
+function isSuggestionSelected(sug) {
+  if (!_context || !sug) return false;
+  if (sug.type === 'value' && _context.mode === 'value' && _context.token) {
+    const currentVal = (_context.token.innerValue ?? '').trim().toLowerCase();
+    if (!currentVal) return false;
+    const sugVal = (sug.value ?? '').trim().toLowerCase();
+    const sugLabel = (sug.label ?? '').trim().toLowerCase();
+    const sugDisplay = (sug.display ?? '').trim().toLowerCase();
+    return currentVal === sugVal || currentVal === sugLabel || currentVal === sugDisplay;
+  }
+  if (sug.type === 'keyword' && _context.mode === 'keyword' && _context.token?.type === 'keyword') {
+    const currentKw = (_context.token.keywordLower ?? '').trim().toLowerCase();
+    if (!currentKw) return false;
+    return currentKw === (sug.id ?? '').trim().toLowerCase();
+  }
+  if (sug.type === 'combinator' && _context.mode === 'keyword' && _context.token?.type === 'combinator') {
+    const currentComb = (_context.token.combinator ?? '').trim().toLowerCase();
+    if (!currentComb) return false;
+    const sugComb = (sug.combinator ?? sug.value ?? '').trim().toLowerCase();
+    return currentComb === sugComb;
+  }
+  return false;
+}
+
+function renderSuggestions() {
+  if (_popoverTitle) {
+    let title = 'Suggestions';
+    if (_context?.mode === 'value' && _context.keywordLower) {
+      const kwConfig = _configuredKeywords.get(_context.keywordLower);
+      if (kwConfig?.rawLabel) title = kwConfig.rawLabel;
+    }
+    _popoverTitle.textContent = title;
+  }
+  _suggestionsList.replaceChildren();
+  _activeSuggestions.forEach((sug, idx) => {
+    const isAct = idx === _selectedIndex;
+    const isSel = isSuggestionSelected(sug);
+    const li = document.createElement('li');
+    li.className = `suggestion-item${isAct ? ' active' : ''}${isSel ? ' selected' : ''}`;
+    li.id = `ri-opt-${idx}`;
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    const parts = ['suggestion-item'];
+    if (isAct) parts.push('suggestion-item-active');
+    if (isSel) parts.push('suggestion-item-selected');
+    li.setAttribute('part', parts.join(' '));
+    if (sug.image) {
+      const img = sug.image.cloneNode(true);
+      img.className = 'suggestion-image';
+      const currentPart = img.getAttribute('part');
+      img.setAttribute('part', currentPart ? `${currentPart} suggestion-image` : 'suggestion-image');
+      li.appendChild(img);
+    }
+    const content = document.createElement('div');
+    content.className = 'suggestion-content';
+    content.setAttribute('part', 'suggestion-content');
+    const title = document.createElement('span');
+    title.className = 'suggestion-title';
+    title.setAttribute('part', sug.type === 'keyword' ? 'suggestion-keyword' : sug.type === 'combinator' ? 'suggestion-combinator' : 'suggestion-value');
+    title.textContent = sug.display;
+    const desc = document.createElement('span');
+    desc.className = 'suggestion-desc';
+    desc.setAttribute('part', 'suggestion-label');
+    desc.textContent = (sug.description && sug.description !== sug.display) ? sug.description : '';
+    content.appendChild(title);
+    if (desc.textContent) content.appendChild(desc);
+    li.appendChild(content);
+    li.addEventListener('mousedown', (e) => e.preventDefault());
+    li.addEventListener('click', () => { _selectedIndex = idx; applySelectedSuggestion(); });
+    li.addEventListener('pointerenter', () => { _selectedIndex = idx; updateActiveSuggestion(); });
+    _suggestionsList.appendChild(li);
+  });
+  updateActiveSuggestion();
+}
+
+function updateActiveSuggestion() {
+  const items = _suggestionsList.children;
+  for (let i = 0; i < items.length; i++) {
+    const isAct = i === _selectedIndex;
+    const isSel = isSuggestionSelected(_activeSuggestions[i]);
+    items[i].classList.toggle('active', isAct);
+    items[i].classList.toggle('selected', isSel);
+    items[i].setAttribute('aria-selected', isSel ? 'true' : 'false');
+    const parts = ['suggestion-item'];
+    if (isAct) parts.push('suggestion-item-active');
+    if (isSel) parts.push('suggestion-item-selected');
+    items[i].setAttribute('part', parts.join(' '));
+    if (isAct) _input.setAttribute('aria-activedescendant', items[i].id);
+  }
+  if (_selectedIndex === -1) _input.removeAttribute('aria-activedescendant');
+}
+
+function moveSelection(delta) {
+  if (_activeSuggestions.length === 0) return;
+  const len = _activeSuggestions.length;
+  if (_selectedIndex === -1) _selectedIndex = delta > 0 ? 0 : len - 1;
+  else _selectedIndex = (_selectedIndex + delta + len) % len;
+  updateActiveSuggestion();
+  const activeEl = _suggestionsList.children[_selectedIndex];
+  if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+}
+
+function showSuggestions(suggestions, context, trigger) {
+  _activeSuggestions = suggestions;
+  const shouldPreselect = context.mode === 'value' || Boolean(context.query) || trigger === 'arrow';
+  const existingSelectedIdx = suggestions.findIndex((s) => isSuggestionSelected(s));
+  _selectedIndex = existingSelectedIdx !== -1 ? existingSelectedIdx : (shouldPreselect ? 0 : -1);
+  renderSuggestions();
+  if (!isPopoverOpen()) { try { _popover.showPopover(); } catch (e) {} }
+  _input.setAttribute('aria-expanded', 'true');
+  const currentRange = getCurrentOpaqueRange();
+  const anchor = currentRange || (context.replaceStart !== undefined ? context.replaceStart : context.caretPos);
+  positionPopover(_popover, getCaretCoordinates(_input, anchor), _input);
+}
+
+function hideSuggestions() {
+  if (_suggestionTimeout) { clearTimeout(_suggestionTimeout); _suggestionTimeout = null; }
+  if (isPopoverOpen()) { try { _popover.hidePopover(); } catch (e) {} }
+  _input.setAttribute('aria-expanded', 'false');
+  _input.removeAttribute('aria-activedescendant');
+  _activeSuggestions = [];
+  _selectedIndex = -1;
+}
+
+function updateSuggestions(trigger = 'input') {
+  if (_suggestionTimeout) { clearTimeout(_suggestionTimeout); _suggestionTimeout = null; }
+  const caretPos = _input.selectionStart;
+  const context = getCaretContext(_input.value, caretPos, _configuredKeywords, _operators, _combinators, _delimiters);
+  if (trigger === 'arrow' && context.mode === 'none') {
+    context.mode = 'keyword'; context.query = ''; context.replaceStart = caretPos; context.replaceEnd = caretPos;
+  }
+  _context = context;
+  const suggestions = getSuggestions(context, _configuredKeywords, _combinators);
+  if (suggestions.length === 0) { hideSuggestions(); return; }
+  const isEmptyField = _input.value.length === 0;
+  const shouldShowImmediately = context.mode === 'value' || isEmptyField || Boolean(context.query) || Boolean(context.operator) || trigger === 'arrow';
+  if (shouldShowImmediately) {
+    showSuggestions(suggestions, context, trigger);
+  } else {
+    if (isPopoverOpen()) hideSuggestions();
+    _suggestionTimeout = setTimeout(() => {
+      _suggestionTimeout = null;
+      const isFocused = _isFocused || root.activeElement === _input || document.activeElement === el || document.activeElement === _input || Boolean(el.matches?.(':focus-within'));
+      if (!isFocused) return;
+      const currentCaretPos = _input.selectionStart;
+      const currentContext = getCaretContext(_input.value, currentCaretPos, _configuredKeywords, _operators, _combinators, _delimiters);
+      _context = currentContext;
+      const currentSuggestions = getSuggestions(currentContext, _configuredKeywords, _combinators);
+      if (currentSuggestions.length === 0) { hideSuggestions(); return; }
+      showSuggestions(currentSuggestions, currentContext, trigger);
+    }, KEYWORD_SUGGESTION_DELAY);
+  }
+}
+
+function applySelectedSuggestion() {
+  if (_selectedIndex < 0 || _selectedIndex >= _activeSuggestions.length) return;
+  const suggestion = _activeSuggestions[_selectedIndex];
+  const { newValue, newCaret } = applySuggestion(_input.value, suggestion, _context);
+  _input.value = newValue;
+  _input.setSelectionRange(newCaret, newCaret);
+  updateClearButton();
+  updateHighlights();
+  setFormValue();
+  el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  el.dispatchEvent(new CustomEvent('rich-input-select', {
+    bubbles: true, composed: true,
+    detail: {
+      type: suggestion.type,
+      operator: _context?.operator || null,
+      combinator: suggestion.combinator || (suggestion.type === 'combinator' ? suggestion.value : null),
+      keyword: suggestion.keyword || (suggestion.type === 'keyword' ? suggestion.id : null),
+      value: suggestion.value || null,
+      label: suggestion.label || null,
+      query: newValue
+    }
+  }));
+  updateSuggestions(suggestion.type === 'keyword' ? 'keyword-selected' : 'value-selected');
+}
+
+function onGlobalResizeOrScroll() {
+  if (isPopoverOpen() && _context) {
+    const currentRange = getCurrentOpaqueRange();
+    const anchor = currentRange || (_context.replaceStart !== undefined ? _context.replaceStart : _context.caretPos);
+    positionPopover(_popover, getCaretCoordinates(_input, anchor), _input);
+  }
+}
+
+/* --- Event wiring (cleaned up automatically via host.signal) --- */
+_input.addEventListener('input', (e) => {
+  _lastCaretPosition = _input.selectionStart;
+  updateClearButton();
+  updateHighlights();
+  updateSuggestions('input');
+  setFormValue();
+  el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+}, { signal: host.signal });
+
+_input.addEventListener('keydown', (e) => {
+  if (isPopoverOpen()) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveSelection(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); moveSelection(-1); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      if (_selectedIndex >= 0 && _selectedIndex < _activeSuggestions.length) { e.preventDefault(); e.stopPropagation(); applySelectedSuggestion(); return; }
+    }
+    if (e.key === 'Escape') { e.preventDefault(); hideSuggestions(); return; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault(); updateSuggestions('arrow'); return;
+  }
+  if (e.key === 'Enter') {
+    hideSuggestions();
+    el.dispatchEvent(new CustomEvent('search', { bubbles: true, composed: true, detail: { value: _input.value, parsed: parseSearchQuery(_input.value, _operators, _combinators, _delimiters) } }));
+  }
+}, { signal: host.signal });
+
+_input.addEventListener('keyup', (e) => {
+  _lastCaretPosition = _input.selectionStart;
+  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { updateHighlights(); updateSuggestions('caret'); }
+}, { signal: host.signal });
+
+_input.addEventListener('focus', () => {
+  _isFocused = true; _lastCaretPosition = _input.selectionStart;
+  updateHighlights(); updateSuggestions('focus');
+}, { signal: host.signal });
+
+_input.addEventListener('blur', () => {
+  _isFocused = false; _lastCaretPosition = -1;
+  if (_suggestionTimeout) { clearTimeout(_suggestionTimeout); _suggestionTimeout = null; }
+  updateHighlights();
+  setTimeout(() => {
+    if (_isFocused) return;
+    hideSuggestions();
+    el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+  }, 150);
+}, { signal: host.signal });
+
+_input.addEventListener('click', (e) => {
+  _isFocused = true;
+  if (e && typeof e.clientX === 'number' && typeof _input?.updateCaretFromPoint === 'function') _input.updateCaretFromPoint(e.clientX, e.clientY);
+  _lastCaretPosition = _input.selectionStart;
+  updateHighlights(); updateSuggestions('click');
+}, { signal: host.signal });
+
+_clearBtn.addEventListener('mousedown', (e) => e.preventDefault(), { signal: host.signal });
+_clearBtn.addEventListener('click', () => {
+  _input.value = '';
+  _input.focus();
+  updateClearButton();
+  updateSuggestions('clear');
+  setFormValue();
+  el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+}, { signal: host.signal });
+
+document.addEventListener('selectionchange', () => {
+  if (!_isFocused) return;
+  const caret = _input.selectionStart;
+  if (_lastCaretPosition !== caret) { _lastCaretPosition = caret; updateHighlights(); }
+}, { signal: host.signal });
+
+document.addEventListener('click', (e) => {
+  if (!el.contains(e.target) && !root.contains(e.target)) hideSuggestions();
+}, { signal: host.signal });
+
+window.addEventListener('resize', onGlobalResizeOrScroll, { signal: host.signal });
+window.addEventListener('scroll', onGlobalResizeOrScroll, { passive: true, signal: host.signal });
+
+_slot.addEventListener('slotchange', () => { loadDatalists(); syncInjectedStyles(); syncIconStyle(); updateHighlights(); }, { signal: host.signal });
+
+const _mo = new MutationObserver((mutations) => {
+  const hasLightDomChange = mutations.some((m) => !(m.target === el && m.type === 'attributes'));
+  if (hasLightDomChange) { loadDatalists(); syncInjectedStyles(); syncIconStyle(); updateHighlights(); }
+});
+_mo.observe(el, { childList: true, subtree: true, characterData: true });
+
+/* --- Initial attribute sync --- */
+function readConfigAttr(attr, normalize, fallback) {
+  if (el.hasAttribute(attr)) return normalize(el.getAttribute(attr));
+  return [...fallback];
+}
+_operators = readConfigAttr('operators', normalizeOperators, GLOBALS.operators);
+_combinators = readConfigAttr('combinators', normalizeCombinators, GLOBALS.combinators);
+_delimiters = readConfigAttr('delimiters', normalizeDelimiters, GLOBALS.delimiters);
+if (el.hasAttribute('value')) _input.value = el.getAttribute('value');
+if (el.hasAttribute('placeholder')) _input.placeholder = el.getAttribute('placeholder');
+if (el.hasAttribute('disabled')) _input.disabled = true;
+if (el.hasAttribute('readonly')) _input.readOnly = true;
+
+const attrMo = new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    const name = m.attributeName;
+    const newValue = el.getAttribute(name);
+    if (name === 'value') { if (_input.value !== (newValue || '')) { _input.value = newValue || ''; updateClearButton(); updateHighlights(); setFormValue(); } }
+    else if (name === 'placeholder') _input.placeholder = newValue || '';
+    else if (name === 'disabled') _input.disabled = newValue !== null;
+    else if (name === 'readonly') _input.readOnly = newValue !== null;
+    else if (name === 'operators') { _operators = newValue === null ? [...GLOBALS.operators] : normalizeOperators(newValue); updateHighlights(); if (isPopoverOpen()) updateSuggestions('operators-changed'); }
+    else if (name === 'combinators') { _combinators = newValue === null ? [...GLOBALS.combinators] : normalizeCombinators(newValue); updateHighlights(); if (isPopoverOpen()) updateSuggestions('combinators-changed'); }
+    else if (name === 'delimiters') { _delimiters = newValue === null ? [...GLOBALS.delimiters] : normalizeDelimiters(newValue); updateHighlights(); if (isPopoverOpen()) updateSuggestions('delimiters-changed'); }
+    else if (name === 'highlight-quotes') updateHighlights();
+  }
+});
+attrMo.observe(el, { attributes: true, attributeFilter: ['value', 'placeholder', 'disabled', 'readonly', 'operators', 'combinators', 'delimiters', 'highlight-quotes'] });
+
+/* --- Public API on the element --- */
+Object.defineProperties(el, {
+  value: { get() { return _input.value; }, set(v) { const n = String(v ?? ''); if (_input.value !== n) { _input.value = n; updateClearButton(); updateHighlights(); setFormValue(); } }, configurable: true },
+  operators: { get() { return [..._operators]; }, set(v) { _operators = v == null ? [...GLOBALS.operators] : normalizeOperators(v); updateHighlights(); }, configurable: true },
+  combinators: { get() { return [..._combinators]; }, set(v) { _combinators = v == null ? [...GLOBALS.combinators] : normalizeCombinators(v); updateHighlights(); }, configurable: true },
+  delimiters: { get() { return [..._delimiters]; }, set(v) { _delimiters = v == null ? [...GLOBALS.delimiters] : normalizeDelimiters(v); updateHighlights(); }, configurable: true },
+  inputElement: { get() { return _input; }, configurable: true }
+});
+el.getParsedQuery = () => parseSearchQuery(_input.value, _operators, _combinators, _delimiters);
+el.getKeywords = () => Array.from(_configuredKeywords.values());
+el.getOperators = () => [..._operators];
+el.setOperators = (v) => { el.operators = v; };
+el.getCombinators = () => [..._combinators];
+el.setCombinators = (v) => { el.combinators = v; };
+el.getDelimiters = () => [..._delimiters];
+el.setDelimiters = (v) => { el.delimiters = v; };
+el.getActiveHighlightRanges = () => _activeKeywordHighlightMap;
+el.getActiveOperatorRanges = () => _operatorRanges;
+el.getActiveCombinatorRanges = () => _combinatorRanges;
+el.getActiveDelimiterRanges = () => _delimiterRanges;
+el.getActiveInvalidRanges = () => _invalidRanges;
+
+/* --- Init --- */
+highlightManager.register(api);
+loadDatalists();
+syncInjectedStyles();
+syncIconStyle();
+syncDocumentHighlightStyles(root);
+requestAnimationFrame(() => syncIconStyle());
+_isFocused = Boolean(root.activeElement === _input || document.activeElement === el || document.activeElement === _input || el.matches?.(':focus-within'));
+updateClearButton();
+updateHighlights();
+setFormValue();
+
+host.ondisconnected = () => {
+  _mo.disconnect();
+  attrMo.disconnect();
+  highlightManager.unregister(api);
+  disconnectOwnedRanges();
+  hideSuggestions();
+};
+</script>
+</template>
